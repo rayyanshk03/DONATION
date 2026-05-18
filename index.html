@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoAid — Donate Crypto, Change Lives</title>
+    <meta name="description" content="Donate crypto, change lives. A platform for seamless cryptocurrency donations to causes you care about.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- UGC Zero-Balance Warning Banner -->
+    <div id="ugcZeroBanner" class="ugc-zero-banner" role="alert" aria-live="polite">
+        <div class="ugc-zero-banner__inner">
+            <span class="ugc-zero-banner__icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            </span>
+            <span class="ugc-zero-banner__msg">
+                You have no UGC tokens. Get UGC to start donating.
+            </span>
+            <a class="ugc-zero-banner__cta" id="ugcFaucetLink" href="#" target="_blank" rel="noopener noreferrer">
+                Get UGC
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </a>
+            <button class="ugc-zero-banner__close" aria-label="Dismiss" onclick="this.closest('#ugcZeroBanner').classList.remove('ugc-banner--visible')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Wrong Network Warning Banner -->
+    <div id="wrongNetworkBanner" class="ugc-zero-banner wrong-network-banner" role="alert" aria-live="assertive">
+        <div class="ugc-zero-banner__inner">
+            <span class="ugc-zero-banner__icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            </span>
+            <span class="ugc-zero-banner__msg">
+                Please switch to Sepolia to use UGC donations.
+            </span>
+            <button class="ugc-zero-banner__cta" onclick="wallet_switchEthereumChain()">
+                Switch Network
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- TX Pending / Success Full-Screen Overlay -->
+    <div id="txPendingOverlay" class="tx-pending-overlay" role="dialog" aria-modal="true" aria-label="Transaction in progress" aria-live="polite">
+        <div class="tx-pending-card">
+
+            <!-- ── Panel 1: Pending / Loading ── -->
+            <div id="txPendingPanel" class="tx-overlay-panel">
+                <div class="tx-pulse-wrap">
+                    <div class="tx-pulse-ring tx-pulse-ring--1"></div>
+                    <div class="tx-pulse-ring tx-pulse-ring--2"></div>
+                    <div class="tx-pulse-ring tx-pulse-ring--3"></div>
+                    <div class="tx-spinner-circle">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <h2 class="tx-pending-title">Your UGC donation is being confirmed…</h2>
+                <p class="tx-pending-msg" id="txPendingMsg">Submitting to the Biconomy bundler…</p>
+
+                <!-- Two-state hash row:
+                     State A — UserOp hash (no link, dimmed)   [data-state="userop"]
+                     State B — tx hash (explorer link, bright) [data-state="txhash"] -->
+                <div class="tx-hash-row" id="txHashRow" data-state="userop">
+
+                    <!-- Label swaps between "UserOp" and "Transaction" -->
+                    <span class="tx-hash-label" id="txHashLabel">UserOp</span>
+
+                    <!-- State A: plain hash (not yet a link) -->
+                    <span class="tx-hash-plain" id="txHashPlain">
+                        <code id="txHashDisplay">—</code>
+                    </span>
+
+                    <!-- State B: explorer link (hidden until tx hash is known) -->
+                    <a class="tx-hash-link tx-hash-link--hidden" id="txHashLink"
+                       href="#" target="_blank" rel="noopener noreferrer"
+                       aria-label="View transaction on block explorer">
+                        <code id="txHashLinkDisplay">—</code>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                    </a>
+                </div>
+
+                <!-- Gas-free badge -->
+                <div class="tx-gas-free-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
+                        <path d="M11 7h2v4h-2z"/>
+                    </svg>
+                    Gas fee: $0.00 &mdash; paid by platform
+                </div>
+
+                <p class="tx-pending-hint" id="txPendingHint">⏱ This usually takes 15–30 seconds</p>
+            </div>
+
+            <!-- ── Panel 2: Success ── -->
+            <div id="txSuccessPanel" class="tx-overlay-panel tx-panel--hidden">
+
+                <!-- Animated green checkmark -->
+                <div class="tx-success-icon-wrap">
+                    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+
+                <h2 class="tx-success-title">Donation Successful! 🎉</h2>
+                <p class="tx-success-detail" id="txSuccessDetail">You donated — UGC to —</p>
+
+                <!-- Gas fee paid badge -->
+                <div class="tx-gas-paid-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
+                        <path d="M11 7h2v4h-2z"/>
+                    </svg>
+                    Gas fee paid: $0.00
+                </div>
+
+                <!-- TX hash -->
+                <div class="tx-hash-row">
+                    <span class="tx-hash-label">Transaction</span>
+                    <a class="tx-hash-link" id="txSuccessHashLink" href="#" target="_blank" rel="noopener noreferrer">
+                        <code id="txSuccessHashDisplay">—</code>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                    </a>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="tx-success-actions">
+                    <a class="tx-share-btn" id="txShareBtn" href="#" target="_blank" rel="noopener noreferrer">
+                        <!-- X (Twitter) logo -->
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.742l7.732-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                        Share on X (Twitter)
+                    </a>
+                    <button class="tx-donate-again-btn" id="txDonateAgainBtn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.64"/>
+                        </svg>
+                        Donate Again
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Wallet Selection Modal Overlay -->
+    <div id="walletModal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Connect your wallet">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 class="modal-title">Connect Wallet</h2>
+                <button class="modal-close" id="closeModalBtn" aria-label="Close modal">&times;</button>
+            </div>
+            <p class="modal-subtitle">Choose your preferred wallet to get started</p>
+            <div class="wallet-options">
+                <button class="wallet-option" id="connectMetaMask" data-wallet="metamask">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" class="wallet-icon">
+                    <div class="wallet-info">
+                        <span class="wallet-name">MetaMask</span>
+                        <span class="wallet-desc">Browser extension wallet</span>
+                    </div>
+                    <span class="wallet-arrow">→</span>
+                </button>
+                <button class="wallet-option" id="connectWalletConnect" data-wallet="walletconnect">
+                    <img src="https://avatars.githubusercontent.com/u/37784886?s=200&v=4" alt="WalletConnect" class="wallet-icon">
+                    <div class="wallet-info">
+                        <span class="wallet-name">WalletConnect</span>
+                        <span class="wallet-desc">Scan with any mobile wallet</span>
+                    </div>
+                    <span class="wallet-arrow">→</span>
+                </button>
+                <button class="wallet-option" id="connectCoinbase" data-wallet="coinbase">
+                    <img src="https://avatars.githubusercontent.com/u/18060234?s=200&v=4" alt="Coinbase Wallet" class="wallet-icon">
+                    <div class="wallet-info">
+                        <span class="wallet-name">Coinbase Wallet</span>
+                        <span class="wallet-desc">Connect with Coinbase</span>
+                    </div>
+                    <span class="wallet-arrow">→</span>
+                </button>
+            </div>
+            <p class="modal-footnote">By connecting, you agree to our <a href="#">Terms of Service</a></p>
+        </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#paint0_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="url(#paint1_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="url(#paint2_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs>
+                    <linearGradient id="paint0_linear" x1="2" y1="7" x2="22" y2="7" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#3b82f6"/>
+                        <stop offset="1" stop-color="#8b5cf6"/>
+                    </linearGradient>
+                    <linearGradient id="paint1_linear" x1="2" y1="19.5" x2="22" y2="19.5" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#3b82f6"/>
+                        <stop offset="1" stop-color="#8b5cf6"/>
+                    </linearGradient>
+                    <linearGradient id="paint2_linear" x1="2" y1="14.5" x2="22" y2="14.5" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#3b82f6"/>
+                        <stop offset="1" stop-color="#8b5cf6"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            CryptoAid
+        </div>
+        <div class="wallet-status" id="walletStatus">
+            <span class="status-indicator" id="statusDot"></span>
+            <span id="walletStatusText">Not connected</span>
+            <span class="ugc-balance-pill" id="ugcBalancePill" style="display:none;"></span>
+            <span class="network-badge" id="networkBadge" style="display:none;"></span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <main class="hero" id="hero">
+        <div class="hero-content">
+            <div class="hero-badge">🌍 Powered by Web3</div>
+            <div class="hero-badge hero-badge--gasfree">⛽ 100% gas-free donations powered by UGC</div>
+            <h1 class="headline">Donate crypto, <br/><span class="highlight">change lives</span></h1>
+            <p class="subheading">The most transparent and efficient way to fund causes you care about using UGC token.</p>
+            <button class="connect-btn" id="connectWalletBtn">
+                <span class="btn-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path>
+                        <line x1="12" y1="12" x2="12" y2="16"></line>
+                        <line x1="10" y1="14" x2="14" y2="14"></line>
+                    </svg>
+                </span>
+                <span id="ctaBtnText">Connect Wallet</span>
+            </button>
+            <div class="hero-trust">
+                <span>🔒 Non-custodial</span>
+                <span>·</span>
+                <span>⛽ Zero gas fees</span>
+                <span>·</span>
+                <span>🌐 Decentralized</span>
+                <span>·</span>
+                <!-- Info tooltip trigger -->
+                <span class="ugc-tooltip-wrap">
+                    <button class="ugc-tooltip-trigger" aria-label="What is UGC?" aria-describedby="ugcTooltip">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        UGC token
+                    </button>
+                    <div class="ugc-tooltip" id="ugcTooltip" role="tooltip">
+                        You pay zero gas. Donations are made in UGC token — no ETH required.
+                        <span class="ugc-tooltip-arrow"></span>
+                    </div>
+                </span>
+            </div>
+        </div>
+
+        <div class="hero-glow glow-1"></div>
+        <div class="hero-glow glow-2"></div>
+    </main>
+
+    <!-- Causes Section -->
+    <section class="causes" id="causesSection">
+        <div class="causes-header">
+            <span class="section-badge">Active Campaigns</span>
+            <h2 class="section-title">Choose a <span class="highlight">Cause</span></h2>
+            <p class="section-subtitle">Every transaction is recorded on-chain — fully transparent, zero overhead.</p>
+        </div>
+        <!-- Dynamically populated by causes.js -->
+        <div class="causes-grid" id="causesGrid"></div>
+    </section>
+
+    <!-- Donate Form Section -->
+    <section class="donate-section" id="donateSection" aria-label="Donation form">
+        <div class="donate-card" id="donateCard">
+
+            <!-- Disabled overlay -->
+            <div class="form-disabled-overlay" id="formDisabledOverlay">
+                <div class="overlay-content">
+                    <span class="overlay-icon">🔒</span>
+                    <p id="overlayMessage">Select a cause and connect your wallet to donate</p>
+                </div>
+            </div>
+
+            <!-- Cause header + wallet balance -->
+            <div class="donate-cause-header">
+                <div class="donate-cause-icon-wrap">
+                    <span id="donateToIcon">🌳</span>
+                </div>
+                <div class="donate-cause-meta">
+                    <p class="donate-label">Donating to</p>
+                    <h2 class="donate-cause-title" id="donateToName">—</h2>
+                </div>
+                <div class="wallet-balance-badge" id="walletBalance" style="display:none;">
+                    <span class="balance-label">Your Balance</span>
+                    <span class="balance-value" id="balanceValue">— UGC</span>
+                </div>
+            </div>
+
+            <!-- Destination address -->
+            <div class="donate-addr-row">
+                <span class="donate-addr-label">To:</span>
+                <button class="donate-addr-value" id="donateToFullAddress" data-address="" title="Click to copy full address">
+                    <code id="donateToAddress">—</code>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1"></path></svg>
+                </button>
+            </div>
+
+            <!-- Amount input -->
+            <div class="donate-amount-field">
+                <div class="amount-label-row">
+                    <label class="donate-amount-label" for="donateAmount">Amount (UGC)</label>
+                    <span class="eth-price-indicator" id="ethPriceIndicator">Fetching price…</span>
+                </div>
+                <div class="amount-input-wrap" id="amountInputWrap">
+                    <span class="amount-prefix">UGC</span>
+                    <input type="number" id="donateAmount" class="amount-input"
+                           placeholder="10" min="1" step="1" autocomplete="off">
+                </div>
+                <!-- Live USD equivalent -->
+                <div class="usd-equiv" id="usdEquivalent">≈ $— USD</div>
+                <!-- Inline validation error -->
+                <div class="input-error" id="amountError" role="alert"></div>
+                <!-- Quick-select presets (3 only) -->
+                <div class="preset-btns">
+                    <button class="preset-btn" data-amount="10">10 UGC</button>
+                    <button class="preset-btn" data-amount="50">50 UGC</button>
+                    <button class="preset-btn" data-amount="100">100 UGC</button>
+                </div>
+            </div>
+
+            <!-- Donation summary line -->
+            <div class="donate-summary" id="donateSummary" style="display:none;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                You are donating <strong id="summaryAmount">0</strong> UGC to <strong id="summaryCause">—</strong>
+            </div>
+
+            <!-- Gas-free info line -->
+            <div class="gas-info-line">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
+                    <path d="M11 7h2v4h-2z"/>
+                </svg>
+                Gas fee: $0.00 &mdash; covered by the platform
+            </div>
+
+            <!-- Donate / Approve button -->
+            <button class="donate-submit-btn" id="donateSubmitBtn" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                Donate Now
+            </button>
+
+
+            <!-- Wallet not connected disclaimer -->
+            <div class="donate-disclaimer" id="donateDisclaimer">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                Connect your wallet above to complete this donation.
+            </div>
+        </div>
+    </section>
+
+    <!-- ethers.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+    <script src="wallet.js"></script>
+    <script src="causes.js"></script>
+    <script src="biconomy.js"></script>
+    <script src="donate.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
