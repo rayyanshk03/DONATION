@@ -66,7 +66,7 @@ async function fetchUgcData(provider, address) {
             : formatted.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
         if (pillEl) {
-            pillEl.textContent   = `${display} UGC`;
+            pillEl.textContent   = `$${display}`;
             pillEl.style.display = 'inline-flex';
         }
 
@@ -102,7 +102,7 @@ async function claimFaucetTokens(e) {
     }
     
     const link = document.getElementById('ugcFaucetLink');
-    let originalText = 'Get UGC';
+    let originalText = 'Get Mock USD';
     if (link) {
         originalText = link.innerHTML;
         link.style.pointerEvents = 'none';
@@ -142,16 +142,16 @@ async function claimFaucetTokens(e) {
             'function faucet(address to, uint256 amount)'
         ], ctx.signer);
         
-        // Mint 10,000 UGC
+        // Mint 10,000 Mock USD
         const amount = ethers.parseUnits('10000', 18);
-        showToast('Please confirm the transaction in your wallet to claim 10,000 UGC.', 'info');
+        showToast('Please confirm the transaction in your wallet to claim 10,000 Mock USD.', 'info');
         
         const tx = await token.faucet(ctx.address, amount);
         showToast('Transaction submitted! Waiting for confirmation...', 'info');
         
         await tx.wait();
-        showToast('10,000 UGC claimed successfully!', 'success');
-        alert('10,000 UGC claimed successfully! Your balance will update in a moment.');
+        showToast('10,000 Mock USD claimed successfully!', 'success');
+        alert('10,000 Mock USD claimed successfully! Your balance will update in a moment.');
         
         // Refresh balance
         await fetchUgcData(ctx.provider, ctx.address);
@@ -161,15 +161,15 @@ async function claimFaucetTokens(e) {
         if (errMsg.toLowerCase().includes('insufficient funds') || errMsg.toLowerCase().includes('gas')) {
             showToast('Insufficient Sepolia ETH for gas.', 'error');
             alert(
-                `You need a small amount of Sepolia ETH in your wallet to cover the gas fee for claiming UGC tokens.\n\n` +
+                `You need a small amount of Sepolia ETH in your wallet to cover the gas fee for claiming Mock USD.\n\n` +
                 `Please get free Sepolia ETH from one of these faucets, then try again:\n` +
                 `- Alchemy Faucet: https://sepoliafaucet.com\n` +
                 `- QuickNode Faucet: https://faucet.quicknode.com/drip\n` +
                 `- PoW Faucet: https://sepolia-faucet.pk910.de`
             );
         } else {
-            showToast(`Failed to claim UGC: ${err.reason || err.message}`);
-            alert(`Failed to claim UGC: ${err.message}`);
+            showToast(`Failed to claim Mock USD: ${err.reason || err.message}`);
+            alert(`Failed to claim Mock USD: ${err.message}`);
         }
     } finally {
         if (link) {
@@ -239,6 +239,7 @@ const CHAIN_NAMES = {
     42161:    'Arbitrum',
     10:       'Optimism',
     8453:     'Base',
+    84532:    'Base Sepolia',
     43114:    'Avalanche',
 };
 

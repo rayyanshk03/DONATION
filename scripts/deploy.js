@@ -2,38 +2,95 @@ import fs from "fs";
 import { ethers } from "ethers";
 import "dotenv/config";
 
+/**
+ * deploy.js — Deploys MockUSD + DonationVault to Base Sepolia.
+ *
+ * Usage:
+ *   1. npx hardhat compile
+ *   2. node scripts/deploy.js
+ *
+ * Requires .env:
+ *   PRIVATE_KEY=0x...
+ *   BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+ */
 async function main() {
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) throw new Error("Please set PRIVATE_KEY in .env");
-  
-  const rpcUrl = process.env.SEPOLIA_RPC_URL || "https://rpc2.sepolia.org";
+  if (!privateKey) throw new Error("Set PRIVATE_KEY in .env");
+
+  const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const deployer = new ethers.Wallet(privateKey, provider);
 
-  console.log("Deploying contracts with the account:", deployer.address);
+  const balance = await provider.getBalance(deployer.address);
+  console.log(`\n📦  Deployer: ${deployer.address}`);
+  console.log(`💰  Balance:  ${ethers.formatEther(balance)} ETH\n`);
 
-  // 1. Deploy UGC Token
-  console.log("Reading UGCToken artifact...");
-  const ugcArtifact = JSON.parse(fs.readFileSync("./artifacts/contracts/UGCToken.sol/UGCToken.json", "utf8"));
-  const UGCToken = new ethers.ContractFactory(ugcArtifact.abi, ugcArtifact.bytecode, deployer);
-  const ugcToken = await UGCToken.deploy();
-  await ugcToken.waitForDeployment();
-  const ugcTokenAddress = await ugcToken.getAddress();
-  console.log("UGCToken deployed to:", ugcTokenAddress);
+  // ── 1. Deploy MockUSD ──────────────────────────────────────────────────────
+  console.log("🔨  Deploying MockUSD...");
+  const musdArtifact = JSON.parse(
+    fs.readFileSync("./contracts/artifacts/contracts/MockUSD.sol/MockUSD.json", "utf8")
+  );
+  const MockUSD = new ethers.ContractFactory(musdArtifact.abi, musdArtifact.bytecode, deployer);
+  const mockUsd = await MockUSD.deploy();
+  await mockUsd.waitForDeployment();
+  const mockUsdAddr = await mockUsd.getAddress();
+  console.log(`✅  MockUSD deployed: ${mockUsdAddr}`);
 
-  // 2. Deploy DonationManager
-  const SEPOLIA_FORWARDER = "0xe4c33113074c4801111a0965d1d6a6669bc0915a";
-  console.log("Reading DonationManager artifact...");
-  const dmArtifact = JSON.parse(fs.readFileSync("./artifacts/contracts/DonationManager.sol/DonationManagerUGC.json", "utf8"));
-  const DonationManager = new ethers.ContractFactory(dmArtifact.abi, dmArtifact.bytecode, deployer);
-  const donationManager = await DonationManager.deploy(ugcTokenAddress, SEPOLIA_FORWARDER);
-  await donationManager.waitForDeployment();
-  const donationManagerAddress = await donationManager.getAddress();
+  // ── 2. Deploy DonationVault ────────────────────────────────────────────────
+  console.log("🔨  Deploying DonationVault...");
+  const vaultArtifact = JSON.parse(
+    fs.readFileSync("./contracts/artifacts/contracts/DonationVault.sol/DonationVault.json", "utf8")
+  );
+  const Vault = new ethers.ContractFactory(vaultArtifact.abi, vaultArtifact.bytecode, deployer);
+  const vault = await Vault.deploy();
+  await vault.waitForDeployment();
+  const vaultAddr = await vault.getAddress();
+  console.log(`✅  DonationVault deployed: ${vaultAddr}`);
 
-  console.log("\n--- DEPLOYMENT COMPLETE ---");
-  console.log("VITE_UGC_TOKEN_ADDRESS=" + ugcTokenAddress);
-  console.log("VITE_DONATION_CONTRACT_ADDRESS=" + donationManagerAddress);
-  console.log("---------------------------\n");
+  // Set the donation token address in the vault
+  console.log("⚙️  Setting donation token in vault...");
+  const setTokenTx = await vault.setDonationToken(mockUsdAddr);
+  await setTokenTx.wait();
+  console.log("✅  Donation token configured in vault!");
+
+  // ── 3. Register default causes ─────────────────────────────────────────────
+  console.log("\n📋  Registering causes...");
+  const causes = [
+    { wallet: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F", name: "Plant Trees" },
+    { wallet: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30", name: "Clean Water" },
+    { wallet: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E", name: "Education Fund" },
+  ];
+
+  const vaultContract = new ethers.Contract(vaultAddr, vaultArtifact.abi, deployer);
+  for (const c of causes) {
+    const tx = await vaultContract.addCause(c.wallet, c.name);
+    await tx.wait();
+    console.log(`   ✅  ${c.name} → ${c.wallet}`);
+  }
+
+  // ── 4. Output .env values & write env.js ───────────────────────────────────
+  console.log("\n══════════════════════════════════════════════");
+  console.log("  DEPLOYMENT COMPLETE — Copy to .env:");
+  console.log("══════════════════════════════════════════════");
+  console.log(`VITE_UGC_TOKEN_ADDRESS=${mockUsdAddr}`);
+  console.log(`VITE_DONATION_CONTRACT_ADDRESS=${vaultAddr}`);
+  console.log(`VITE_TARGET_CHAIN_ID=84532`);
+  console.log("══════════════════════════════════════════════\n");
+
+  const envJsContent = `// Automatically generated by scripts/deploy.js
+window.ENV = {
+  VITE_UGC_TOKEN_ADDRESS: "${mockUsdAddr}",
+  VITE_DONATION_CONTRACT_ADDRESS: "${vaultAddr}",
+  VITE_TARGET_CHAIN_ID: "84532",
+  VITE_UGF_API_KEY: "ugf_test_your_key_here",
+  VITE_UGF_ENDPOINT: "https://testnet.api.ugf.network",
+  VITE_UGC_FAUCET_URL: "https://faucet.ugf.network",
+  VITE_BACKEND_URL: "http://localhost:4000",
+  VITE_WS_URL: "ws://localhost:4000/ws"
+};
+`;
+  fs.writeFileSync("./env.js", envJsContent, "utf8");
+  console.log("💾  Successfully wrote env.js for the frontend!");
 }
 
 main().catch((error) => {

@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Cause {
+  id          Int        @id @default(autoincrement())
+  name        String
+  description String
+  wallet      String
+  icon        String
+  tag         String
+  goalUsd     Decimal
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  donations   Donation[]
+}
+
+model Donation {
+  id         String   @id @default(cuid())
+  donor      String
+  amount     Decimal
+  txHash     String   @unique
+  ugfQuoteId String?
+  ugfStatus  String   @default("pending")
+  cause      Cause    @relation(fields: [causeId], references: [id])
+  causeId    Int
+  createdAt  DateTime @default(now())
+
+  @@index([donor])
+  @@index([causeId])
+  @@index([createdAt])
+}
+
+model Donor {
+  id            String   @id @default(cuid())
+  wallet        String   @unique
+  totalDonated  Decimal  @default(0)
+  donationCount Int      @default(0)
+  firstDonation DateTime @default(now())
+  lastDonation  DateTime @default(now())
+
+  @@index([totalDonated])
+}

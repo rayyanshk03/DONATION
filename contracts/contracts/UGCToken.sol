@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract UGCToken is ERC20, Ownable {
-    constructor() ERC20("Universal Giving Coin", "UGC") Ownable(msg.sender) {
+    constructor() ERC20("Universal Giving Coin", "UGC") Ownable() {
         // Mint 1,000,000 tokens to the deployer
         _mint(msg.sender, 1000000 * 10 ** decimals());
     }

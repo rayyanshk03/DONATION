@@ -1,15 +1,16 @@
-// ─── Contract config ─────────────────────────────────────────────────────────
-// Supports window.ENV (dynamic loader), process env, or global fallbacks.
 const CONTRACT_ADDRESS = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_DONATION_CONTRACT_ADDRESS)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_DONATION_CONTRACT_ADDRESS)
-    || (typeof DONATION_CONTRACT_ADDRESS !== 'undefined' ? DONATION_CONTRACT_ADDRESS : '0xYourDonationManagerAddressHere');
+    || (typeof DONATION_CONTRACT_ADDRESS !== 'undefined' ? DONATION_CONTRACT_ADDRESS : '0xYourDonationVaultAddressHere');
 const CONTRACT_ABI = [
     // ── Write ────────────────────────────────────────────────────────────────
-    'function donateUGC(uint256 causeId, uint256 amount)',
+    'function donate(uint256 causeId, uint256 amount)',
     // ── Read ─────────────────────────────────────────────────────────────────
     'function getCauses(uint256[] causeIds) view returns (address[] wallets, uint256[] donated, uint256[] numDonors)',
-    'function totalDonatedUGC(uint256 causeId) view returns (uint256)',
-    'function donorCount(uint256 causeId) view returns (uint256)',
+    'function getAnalytics() view returns (uint256 totalDonations, uint256 totalDonationCount, uint256 causeCount)',
+    'function causes(uint256) view returns (address wallet, uint256 totalDonated, uint256 donorCount, bool active)',
+    // ── Events ───────────────────────────────────────────────────────────────
+    'event DonationMade(address indexed donor, uint256 indexed causeId, uint256 amount, uint256 timestamp)',
+    'event CauseCreated(uint256 indexed causeId, address indexed wallet, string name)',
 ];
 
 // Full ERC-20 + EIP-2612 ABI
@@ -28,8 +29,7 @@ const ERC20_ABI = [
 // UGC token decimals — updated at runtime via token.decimals()
 let UGC_DECIMALS = 18n;
 
-// Block explorer
-const EXPLORER_BASE = 'https://sepolia.etherscan.io/tx/';
+// EXPLORER_BASE is defined in ugf.js (loaded before this file)
 
 // ─── EIP-2612 permit helper ───────────────────────────────────────────────────
 /**
@@ -110,100 +110,18 @@ async function tryPermitSignature(ugcToken, owner, amountWei, chainId) {
     }
 }
 
-// ─── TX Pending overlay helpers ───────────────────────────────────────────────
+// ─── TX Overlay helpers (delegating to ugf.js) ───────────────────────────────
 
+/**
+ * Thin wrapper — delegates to the UGF lifecycle overlay in ugf.js.
+ * Kept for backward compatibility with any remaining call sites.
+ */
 function showTxPending(txHash) {
-    const overlay  = document.getElementById('txPendingOverlay');
-    const hashEl   = document.getElementById('txHashDisplay');
-    const hashLink = document.getElementById('txHashLink');
-    if (!overlay) return;
-    if (txHash) {
-        const short = `${txHash.slice(0, 10)}...${txHash.slice(-8)}`;
-        if (hashEl)   hashEl.textContent = short;
-        if (hashLink) hashLink.href = `${EXPLORER_BASE}${txHash}`;
-    }
-    document.body.style.overflow = 'hidden';
-    overlay.classList.add('tx-pending--open');
-}
-
-/**
- * Phase 1 -- Called immediately after eth_sendUserOperation succeeds.
- * Shows the blocking overlay with the UserOp hash (plain text, no link yet).
- * Locks the form; user cannot interact until the overlay is dismissed.
- */
-function showTxPendingUserOp(opHash) {
-    const overlay    = document.getElementById('txPendingOverlay');
-    const hashRow    = document.getElementById('txHashRow');
-    const label      = document.getElementById('txHashLabel');
-    const hashPlain  = document.getElementById('txHashDisplay');
-    const msg        = document.getElementById('txPendingMsg');
-    const hint       = document.getElementById('txPendingHint');
-    if (!overlay) return;
-
-    // Populate the UserOp hash in the plain (non-link) slot
-    if (hashPlain && opHash) {
-        hashPlain.textContent = `${opHash.slice(0, 6)}...${opHash.slice(-4)}`;
-    }
-
-    // Set the row to "userop" state: plain hash visible, explorer link hidden
-    if (hashRow)  hashRow.dataset.state  = 'userop';
-    if (label)    label.textContent      = 'UserOp';
-    if (msg)      msg.textContent        = 'UserOp submitted -- waiting for on-chain confirmation...';
-    if (hint)     hint.textContent       = 'This usually takes 15-30 seconds';
-
-    // Lock scroll and open overlay (blocks all form interaction)
-    document.body.style.overflow = 'hidden';
-    overlay.classList.add('tx-pending--open');
-}
-
-/**
- * Phase 2 -- Called once eth_getUserOperationReceipt returns a transactionHash.
- * Upgrades the hash row: plain UserOp hash -> clickable Etherscan link.
- * Does NOT close the overlay -- showTxSuccess() handles the panel swap.
- */
-function upgradeTxHashToLink(txHash) {
-    const hashRow     = document.getElementById('txHashRow');
-    const label       = document.getElementById('txHashLabel');
-    const linkEl      = document.getElementById('txHashLink');
-    const linkDisplay = document.getElementById('txHashLinkDisplay');
-    const msg         = document.getElementById('txPendingMsg');
-    const hint        = document.getElementById('txPendingHint');
-
-    const short = txHash ? `${txHash.slice(0, 6)}...${txHash.slice(-4)}` : '--';
-
-    if (linkDisplay) linkDisplay.textContent = short;
-    if (linkEl)      linkEl.href             = `${EXPLORER_BASE}${txHash}`;
-
-    // Flip row to "txhash" state: explorer link visible, plain hash hidden
-    if (hashRow) hashRow.dataset.state  = 'txhash';
-    if (label)   label.textContent      = 'Transaction';
-    if (msg)     msg.textContent        = 'Confirmed on-chain!';
-    if (hint)    hint.textContent       = 'Gas fee: $0.00 -- paid by platform';
+    showUGFPhase('executing', { hash: txHash });
 }
 
 function hideTxPending() {
-    const overlay = document.getElementById('txPendingOverlay');
-    if (!overlay) return;
-    overlay.classList.remove('tx-pending--open');
-    document.body.style.overflow = '';
-    setTimeout(() => {
-        // Reset panels
-        document.getElementById('txPendingPanel')?.classList.remove('tx-panel--hidden');
-        document.getElementById('txSuccessPanel')?.classList.add('tx-panel--hidden');
-        // Reset hash row to initial "userop" state for the next donation
-        const hashRow   = document.getElementById('txHashRow');
-        const label     = document.getElementById('txHashLabel');
-        const hashPlain = document.getElementById('txHashDisplay');
-        const linkDisp  = document.getElementById('txHashLinkDisplay');
-        const msg       = document.getElementById('txPendingMsg');
-        const hint      = document.getElementById('txPendingHint');
-        if (hashRow)   hashRow.dataset.state  = 'userop';
-        if (label)     label.textContent      = 'UserOp';
-        if (hashPlain) hashPlain.textContent  = '--';
-        if (linkDisp)  linkDisp.textContent   = '--';
-        if (msg)       msg.textContent        = 'Submitting to the Biconomy bundler...';
-        if (hint)      hint.textContent       = 'This usually takes 15-30 seconds';
-    }, 320);
+    hideUGFOverlay();
 }
 
 function showTxSuccess(amountUgc, causeName, txHash) {
@@ -214,7 +132,7 @@ function showTxSuccess(amountUgc, causeName, txHash) {
     // Donation detail line
     const amtFmt = Number(amountUgc).toLocaleString('en-US');
     const detail = document.getElementById('txSuccessDetail');
-    if (detail) detail.textContent = `You donated ${amtFmt} UGC to ${causeName}`;
+    if (detail) detail.textContent = `You donated $${amtFmt} USD to ${causeName}`;
 
     // Transaction hash row -- clickable Etherscan link
     if (txHash) {
@@ -229,7 +147,7 @@ function showTxSuccess(amountUgc, causeName, txHash) {
     const shareBtn = document.getElementById('txShareBtn');
     if (shareBtn) {
         const tweet = encodeURIComponent(
-            `Just donated ${amtFmt} UGC to ${causeName} with zero gas fees!\n#UGC #CryptoDonation #GasFree`
+            `Just donated $${amtFmt} USD to ${causeName} with zero gas fees!\n#UGF #MockUSD #GasFree`
         );
         shareBtn.href = `https://twitter.com/intent/tweet?text=${tweet}`;
     }
@@ -284,7 +202,7 @@ async function fetchUgcPrice() {
         ugcUsdPrice = data['ugc-coin']?.usd ?? null;
 
         if (ugcUsdPrice && indicator) {
-            indicator.textContent = `1 UGC ≈ $${ugcUsdPrice.toLocaleString('en-US', { maximumFractionDigits: 4 })}`;
+            indicator.textContent = `1 Mock USD = $1.00`;
             indicator.classList.add('price-loaded');
         }
         // Refresh USD display if the user already typed an amount
@@ -359,7 +277,7 @@ function validateAmount(amountUgc) {
         if (ugcBalanceWei > 0n && amountWei > ugcBalanceWei) {
             const humanBalance = Number(ethers.formatUnits(ugcBalanceWei, UGC_DECIMALS))
                 .toLocaleString('en-US', { maximumFractionDigits: 2 });
-            showError(`Insufficient UGC balance. Your wallet holds ${humanBalance} UGC.`);
+            showError(`Insufficient USD balance. Your wallet holds $${humanBalance}.`);
             return false;
         }
     } catch {
@@ -407,7 +325,7 @@ function refreshSubmitBtn() {
                 <polyline points="9 11 12 14 22 4"/>
                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
             </svg>
-            Approve UGC`;
+            Approve USD`;
         btn.classList.add('submit-approve');
         btn.classList.remove('submit-donate');
     } else {
@@ -442,7 +360,7 @@ function updateFormActiveState() {
     if (msgEl) {
         if (isWrongNetwork) {
             const chainName = window.getChainName ? window.getChainName(window.TARGET_CHAIN_ID) : 'Sepolia';
-            msgEl.innerHTML = `Please switch to ${chainName} to use UGC donations.<br><button class="switch-network-btn-overlay" id="overlaySwitchNetworkBtn" onclick="wallet_switchEthereumChain()">Switch Network</button>`;
+            msgEl.innerHTML = `Please switch to ${chainName} to use USD donations.<br><button class="switch-network-btn-overlay" id="overlaySwitchNetworkBtn" onclick="wallet_switchEthereumChain()">Switch Network</button>`;
         } else {
             msgEl.textContent = !isConnected && !hasCause
                 ? 'Select a cause and connect your wallet to donate'
@@ -508,7 +426,7 @@ async function syncUgcData() {
     // Update the in-form balance badge
     const humanBalance = Number(ethers.formatUnits(ugcBalanceWei, UGC_DECIMALS))
         .toLocaleString('en-US', { maximumFractionDigits: 2 });
-    if (valEl)   valEl.textContent    = `${humanBalance} UGC`;
+    if (valEl)   valEl.textContent    = `$${humanBalance}`;
     if (badgeEl) badgeEl.style.display = 'flex';
 }
 
@@ -627,11 +545,11 @@ async function onDonateSubmit() {
         }
     }
 
-    // ── Phase 3: sponsored Gasless Account Abstraction Donation ───────────
+    // ── Phase 3: UGF Gasless Donation (Quote → Settle → Execute → Confirm) ─
     btn.disabled  = true;
     btn.innerHTML = `${SPINNER} Sign the donation in your wallet…`;
 
-    // Encode the correct DonationManager calldata depending on approval path
+    // Encode the correct DonationVault calldata depending on approval path
     const donationIface = new ethers.Interface(CONTRACT_ABI);
     let to, calldata;
     if (permitSig) {
@@ -646,7 +564,7 @@ async function onDonateSubmit() {
             r,
             s
         ]);
-        const donateCalldata = donationIface.encodeFunctionData('donateUGC', [
+        const donateCalldata = donationIface.encodeFunctionData('donate', [
             cause.id,
             amountWei
         ]);
@@ -655,7 +573,7 @@ async function onDonateSubmit() {
         calldata = [permitCalldata, donateCalldata];
     } else {
         to = CONTRACT_ADDRESS;
-        calldata = donationIface.encodeFunctionData('donateUGC', [
+        calldata = donationIface.encodeFunctionData('donate', [
             cause.id,
             amountWei
         ]);
@@ -664,53 +582,58 @@ async function onDonateSubmit() {
     const { provider } = WalletContext.getState();
 
     try {
-        // Submit the UserOperation through our gasless sponsored bundler & paymaster
-        const receipt = await sendBiconomyDonation({
+        // Submit through the UGF gasless lifecycle: Quote → Settle → Execute → Confirm
+        const receipt = await sendUGFDonation({
             signer,
             provider,
             chainId,
             to,
             data: calldata,
 
-            // Fired immediately after eth_sendUserOperation succeeds
-            onOpSubmitted(opHash) {
-                // Show the blocking overlay with the UserOp hash
-                showTxPendingUserOp(opHash);
+            // Lifecycle callbacks — each one updates the 4-phase overlay
+            onQuote(quote) {
+                showUGFPhase('quoting', { quoteId: quote.quoteId });
                 // Restore button state beneath the overlay
                 btn.innerHTML = originalHTML;
                 btn.disabled  = false;
                 refreshSubmitBtn();
             },
+            onSettle() {
+                showUGFPhase('settling');
+            },
+            onExecute(txHash) {
+                showUGFPhase('executing', { hash: txHash });
+            },
         });
 
-        // UserOperation is successfully mined — upgrade the hash row to a real Etherscan link
+        // Transaction confirmed on-chain — show final confirmed state
         const txHash = receipt.transactionHash;
-        upgradeTxHashToLink(txHash);
+        showUGFPhase('confirmed');
 
-        // Visual pause for absolute best user experience before presenting success screen
+        // Visual pause for best user experience before presenting success screen
         await new Promise(r => setTimeout(r, 900));
 
         // Re-sync balance and allowances to prevent any stale UI state
         await syncUgcData();
         refreshSubmitBtn();
         if (typeof loadOnChainStats === 'function') loadOnChainStats();
-        
+
         // Open the dynamic success overlay panel
         showTxSuccess(amountRaw, cause.name, txHash);
 
     } catch (err) {
-        console.error('[DonateForm] AA error:', err);
+        console.error('[DonateForm] UGF error:', err);
         hideTxPending();
         restoreBtn();
 
         if (isRejection(err)) {
             showToast('Donation cancelled. Nothing was sent.', 'error');
-        } else if (err.message?.includes('Biconomy not configured')) {
-            showToast('⚠️ Biconomy URLs not set — check biconomy.js', 'error');
+        } else if (err.message?.includes('UGF not configured')) {
+            showToast('⚠️ UGF API key not set — check your .env file', 'error');
             console.error(err.message);
         } else {
             const msg = err.reason ?? err.shortMessage ?? err.message ?? 'Unknown error';
-            showToast(`Signing error: ${msg}`, 'error');
+            showToast(`Donation error: ${msg}`, 'error');
         }
     }
 }

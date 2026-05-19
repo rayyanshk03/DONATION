@@ -5,12 +5,22 @@ dotenv.config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 export default {
-  solidity: "0.8.20",
+  solidity: {
+    version: "0.8.27",
+    settings: {
+      optimizer: { enabled: true, runs: 200 },
+    },
+  },
   networks: {
     sepolia: {
       type: "http",
       url: process.env.SEPOLIA_RPC_URL || "https://rpc2.sepolia.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
-    }
-  }
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+    baseSepolia: {
+      type: "http",
+      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+  },
 };

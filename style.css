@@ -54,6 +54,178 @@ body::before {
     pointer-events: none;
 }
 
+/* ─── Live Feed + Leaderboard ─────────────────────────────────────────────── */
+.live-section,
+.analytics-section {
+    padding: 3.5rem 6%;
+}
+
+.live-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.live-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 1.2rem 1.3rem;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+}
+
+.live-indicator {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--pill-border);
+    background: var(--pill-bg);
+    color: var(--pill-color);
+}
+
+.live-indicator.live {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #065f46;
+}
+
+.cache-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.feed-list,
+.leaderboard-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+}
+
+.feed-item,
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.feed-item--highlight {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.feed-main {
+    display: flex;
+    flex-direction: column;
+}
+
+.feed-amount {
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.feed-cause {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+}
+
+.feed-sub {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.leaderboard-item {
+    gap: 0.6rem;
+}
+
+.lb-rank {
+    font-weight: 700;
+    color: var(--secondary);
+    width: 2rem;
+}
+
+.lb-wallet {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    flex: 1;
+}
+
+.lb-amount {
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 1rem 0 0.5rem;
+}
+
+/* ─── Analytics ───────────────────────────────────────────────────────────── */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.analytics-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.analytics-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.analytics-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+@media (max-width: 768px) {
+    .live-section,
+    .analytics-section {
+        padding: 3rem 6%;
+    }
+
+    .feed-list,
+    .leaderboard-list {
+        max-height: 280px;
+    }
+}
+
 /* ─── Navbar ─────────────────────────────────────────────────────────────── */
 .navbar {
     display: flex;
@@ -1830,7 +2002,101 @@ body::before {
 }
 .tx-donate-again-btn:active { transform: translateY(0); }
 
-/* ─── Responsive ─────────────────────────────────────────────────────────── */
+/* ─── UGF Lifecycle Indicator ────────────────────────────────────────────── */
+.ugf-lifecycle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 2rem;
+    width: 100%;
+    max-width: 340px;
+}
+
+.ugf-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+}
+
+.ugf-step-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 2px solid rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+.ugf-step-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    transition: color 0.3s ease;
+}
+
+.ugf-step-line {
+    flex: 1;
+    height: 2px;
+    min-width: 24px;
+    background: rgba(0,0,0,0.08);
+    margin: 0 0.15rem;
+    margin-bottom: 1.6rem; /* align with dot center, not label */
+    transition: background 0.4s ease;
+}
+
+/* Active phase — pulsing blue */
+.ugf-step--active .ugf-step-dot {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 0 0 0 rgba(59,130,246,0.4);
+    animation: ugfPulse 1.8s ease-in-out infinite;
+}
+.ugf-step--active .ugf-step-dot svg {
+    animation: spin 1.2s linear infinite;
+}
+.ugf-step--active .ugf-step-label {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+/* Completed phase — solid green check */
+.ugf-step--done .ugf-step-dot {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+}
+.ugf-step--done .ugf-step-dot svg {
+    animation: none;
+}
+.ugf-step--done .ugf-step-label {
+    color: #10b981;
+}
+
+/* Line between completed steps turns green */
+.ugf-step--done + .ugf-step-line {
+    background: linear-gradient(90deg, #10b981, var(--primary));
+}
+.ugf-step--done + .ugf-step-line + .ugf-step--done + .ugf-step-line {
+    background: linear-gradient(90deg, #10b981, #10b981);
+}
+
+@keyframes ugfPulse {
+    0%, 100% { box-shadow: 0 0 0 0   rgba(59,130,246,0.4), 0 4px 16px rgba(59,130,246,0.25); }
+    50%      { box-shadow: 0 0 0 10px rgba(59,130,246,0.0), 0 4px 16px rgba(59,130,246,0.25); }
+}
+
 @media (max-width: 640px) {
     .navbar  { padding: 1rem 4%; }
     .hero    { padding: 3rem 4% 5rem; min-height: calc(100vh - 58px); }

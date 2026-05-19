@@ -40,6 +40,10 @@ const CAUSES = [
     },
 ];
 
+const BACKEND_URL = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_BACKEND_URL)
+    || (typeof window !== 'undefined' && window.API_BASE)
+    || 'http://localhost:4000';
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let selectedCauseId = null;
 
@@ -52,9 +56,25 @@ function pct(raised, goal) {
     return Math.min(100, Math.round((raised / goal) * 100));
 }
 
-/** Format a UGC whole-unit number as "12,400 UGC" */
+/** Format a UGC whole-unit number as "$12,400" */
 function formatUgc(amount) {
-    return `${Number(amount).toLocaleString('en-US')} UGC`;
+    return `$${Number(amount).toLocaleString('en-US')}`;
+}
+
+function patchCauseProgress(cause) {
+    const progressEl = document.getElementById(`cause-progress-${cause.id}`);
+    if (!progressEl) return;
+
+    const percent = pct(cause.raisedUgc, cause.goalUgc);
+    const fillEl = progressEl.querySelector('.progress-fill');
+    const raisedEl = progressEl.querySelector('.raised-label');
+    const pctEl = progressEl.querySelector('.progress-pct');
+    const donorValEl = progressEl.querySelector('.donor-count-val');
+
+    if (fillEl) fillEl.style.width = `${percent}%`;
+    if (raisedEl) raisedEl.textContent = formatUgc(cause.raisedUgc);
+    if (pctEl) pctEl.textContent = `${percent}%`;
+    if (donorValEl) donorValEl.textContent = Number(cause.donorCount).toLocaleString('en-US');
 }
 
 const COPY_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1"></path></svg>`;
@@ -197,22 +217,7 @@ async function loadOnChainStats() {
             // Patch in-memory CAUSES so re-renders stay consistent
             cause.raisedUgc  = raisedUgc;
             cause.donorCount = donors;
-
-            // Patch the DOM directly — much cheaper than re-rendering all cards
-            const progressEl = document.getElementById(`cause-progress-${cause.id}`);
-            if (!progressEl) return;
-
-            const percent = pct(raisedUgc, cause.goalUgc);
-
-            const fillEl     = progressEl.querySelector('.progress-fill');
-            const raisedEl   = progressEl.querySelector('.raised-label');
-            const pctEl      = progressEl.querySelector('.progress-pct');
-            const donorValEl = progressEl.querySelector('.donor-count-val');
-
-            if (fillEl)     fillEl.style.width    = `${percent}%`;
-            if (raisedEl)   raisedEl.textContent   = formatUgc(raisedUgc);
-            if (pctEl)      pctEl.textContent       = `${percent}%`;
-            if (donorValEl) donorValEl.textContent  = donors.toLocaleString('en-US');
+            patchCauseProgress(cause);
         });
 
     } catch (err) {
@@ -220,6 +225,52 @@ async function loadOnChainStats() {
         console.warn('[CauseGrid] loadOnChainStats failed:', err.shortMessage || err.message);
     }
 }
+
+async function refreshCausesFromBackend() {
+    try {
+        const resp = await fetch(`${BACKEND_URL}/api/causes`, { signal: AbortSignal.timeout(8000) });
+        if (!resp.ok) throw new Error('Failed to load causes');
+        const data = await resp.json();
+        if (!data?.causes) return;
+
+        data.causes.forEach(apiCause => {
+            const existing = CAUSES.find(c => c.id === apiCause.id);
+            const payload = {
+                id: apiCause.id,
+                name: apiCause.name,
+                description: apiCause.description,
+                address: apiCause.wallet,
+                icon: apiCause.icon,
+                tag: apiCause.tag,
+                raisedUgc: Number(apiCause.totalDonated ?? 0),
+                goalUgc: Number(apiCause.goalUsd ?? 0),
+                donorCount: Number(apiCause.donorCount ?? 0),
+                featured: existing?.featured ?? false,
+            };
+
+            if (existing) {
+                Object.assign(existing, payload);
+            } else {
+                CAUSES.push(payload);
+            }
+        });
+
+        renderCauses();
+    } catch (err) {
+        console.warn('[CauseGrid] Backend causes fetch failed:', err.message || err);
+    }
+}
+
+function applyCauseUpdate({ causeId, totalDonated, donorCount }) {
+    const cause = CAUSES.find(c => c.id === Number(causeId));
+    if (!cause) return;
+    cause.raisedUgc = Number(totalDonated ?? cause.raisedUgc);
+    cause.donorCount = Number(donorCount ?? cause.donorCount);
+    patchCauseProgress(cause);
+}
+
+window.refreshCausesFromBackend = refreshCausesFromBackend;
+window.applyCauseUpdate = applyCauseUpdate;
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 function attachCauseListeners() {

@@ -24,10 +24,10 @@
                 </svg>
             </span>
             <span class="ugc-zero-banner__msg">
-                You have no UGC tokens. Get UGC to start donating.
+                You have no Mock USD tokens. Get Mock USD to start donating.
             </span>
             <a class="ugc-zero-banner__cta" id="ugcFaucetLink" href="#" target="_blank" rel="noopener noreferrer">
-                Get UGC
+                Get Mock USD
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                 </svg>
@@ -51,7 +51,7 @@
                 </svg>
             </span>
             <span class="ugc-zero-banner__msg">
-                Please switch to Sepolia to use UGC donations.
+                Please switch to Sepolia to use USD donations.
             </span>
             <button class="ugc-zero-banner__cta" onclick="wallet_switchEthereumChain()">
                 Switch Network
@@ -66,36 +66,55 @@
     <div id="txPendingOverlay" class="tx-pending-overlay" role="dialog" aria-modal="true" aria-label="Transaction in progress" aria-live="polite">
         <div class="tx-pending-card">
 
-            <!-- ── Panel 1: Pending / Loading ── -->
+            <!-- ── Panel 1: Pending / Loading (UGF Lifecycle) ── -->
             <div id="txPendingPanel" class="tx-overlay-panel">
-                <div class="tx-pulse-wrap">
-                    <div class="tx-pulse-ring tx-pulse-ring--1"></div>
-                    <div class="tx-pulse-ring tx-pulse-ring--2"></div>
-                    <div class="tx-pulse-ring tx-pulse-ring--3"></div>
-                    <div class="tx-spinner-circle">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                        </svg>
+
+                <!-- UGF 4-Phase Lifecycle Indicator -->
+                <div class="ugf-lifecycle">
+                    <div class="ugf-step" data-phase="quoting">
+                        <div class="ugf-step-dot">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+                        </div>
+                        <span class="ugf-step-label">Quote</span>
+                    </div>
+                    <div class="ugf-step-line"></div>
+                    <div class="ugf-step" data-phase="settling">
+                        <div class="ugf-step-dot">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <span class="ugf-step-label">Settle</span>
+                    </div>
+                    <div class="ugf-step-line"></div>
+                    <div class="ugf-step" data-phase="executing">
+                        <div class="ugf-step-dot">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </div>
+                        <span class="ugf-step-label">Execute</span>
+                    </div>
+                    <div class="ugf-step-line"></div>
+                    <div class="ugf-step" data-phase="confirmed">
+                        <div class="ugf-step-dot">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <span class="ugf-step-label">Confirm</span>
                     </div>
                 </div>
 
-                <h2 class="tx-pending-title">Your UGC donation is being confirmed…</h2>
-                <p class="tx-pending-msg" id="txPendingMsg">Submitting to the Biconomy bundler…</p>
+                <h2 class="tx-pending-title">Your gasless donation is in progress…</h2>
+                <p class="tx-pending-msg" id="txPendingMsg">Preparing your gasless donation…</p>
 
                 <!-- Two-state hash row:
-                     State A — UserOp hash (no link, dimmed)   [data-state="userop"]
-                     State B — tx hash (explorer link, bright) [data-state="txhash"] -->
+                     State A — Quote/Settlement ID (no link, dimmed)   [data-state="userop"]
+                     State B — tx hash (explorer link, bright)         [data-state="txhash"] -->
                 <div class="tx-hash-row" id="txHashRow" data-state="userop">
+                    <span class="tx-hash-label" id="txHashLabel">Quote</span>
 
-                    <!-- Label swaps between "UserOp" and "Transaction" -->
-                    <span class="tx-hash-label" id="txHashLabel">UserOp</span>
-
-                    <!-- State A: plain hash (not yet a link) -->
+                    <!-- State A: plain ID (not yet a link) -->
                     <span class="tx-hash-plain" id="txHashPlain">
                         <code id="txHashDisplay">—</code>
                     </span>
 
-                    <!-- State B: explorer link (hidden until tx hash is known) -->
+                    <!-- State B: explorer link (visible after execute phase) -->
                     <a class="tx-hash-link tx-hash-link--hidden" id="txHashLink"
                        href="#" target="_blank" rel="noopener noreferrer"
                        aria-label="View transaction on block explorer">
@@ -106,13 +125,13 @@
                     </a>
                 </div>
 
-                <!-- Gas-free badge -->
+                <!-- Gas-free badge (UGF powered) -->
                 <div class="tx-gas-free-row">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
                         <path d="M11 7h2v4h-2z"/>
                     </svg>
-                    Gas fee: $0.00 &mdash; paid by platform
+                    Gas fee: $0.00 &mdash; paid by UGF
                 </div>
 
                 <p class="tx-pending-hint" id="txPendingHint">⏱ This usually takes 15–30 seconds</p>
@@ -129,7 +148,7 @@
                 </div>
 
                 <h2 class="tx-success-title">Donation Successful! 🎉</h2>
-                <p class="tx-success-detail" id="txSuccessDetail">You donated — UGC to —</p>
+                <p class="tx-success-detail" id="txSuccessDetail">You donated — USD to —</p>
 
                 <!-- Gas fee paid badge -->
                 <div class="tx-gas-paid-row">
@@ -246,9 +265,9 @@
     <main class="hero" id="hero">
         <div class="hero-content">
             <div class="hero-badge">🌍 Powered by Web3</div>
-            <div class="hero-badge hero-badge--gasfree">⛽ 100% gas-free donations powered by UGC</div>
+            <div class="hero-badge hero-badge--gasfree">⛽ 100% gas-free donations powered by UGF</div>
             <h1 class="headline">Donate crypto, <br/><span class="highlight">change lives</span></h1>
-            <p class="subheading">The most transparent and efficient way to fund causes you care about using UGC token.</p>
+            <p class="subheading">The most transparent and efficient way to fund causes you care about using Mock USD.</p>
             <button class="connect-btn" id="connectWalletBtn">
                 <span class="btn-icon">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -269,16 +288,16 @@
                 <span>·</span>
                 <!-- Info tooltip trigger -->
                 <span class="ugc-tooltip-wrap">
-                    <button class="ugc-tooltip-trigger" aria-label="What is UGC?" aria-describedby="ugcTooltip">
+                    <button class="ugc-tooltip-trigger" aria-label="What is Mock USD?" aria-describedby="ugcTooltip">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <line x1="12" y1="8" x2="12" y2="12"/>
                             <line x1="12" y1="16" x2="12.01" y2="16"/>
                         </svg>
-                        UGC token
+                        Mock USD
                     </button>
                     <div class="ugc-tooltip" id="ugcTooltip" role="tooltip">
-                        You pay zero gas. Donations are made in UGC token — no ETH required.
+                        You pay zero gas. Donations are made in Mock USD — no ETH required.
                         <span class="ugc-tooltip-arrow"></span>
                     </div>
                 </span>
@@ -298,6 +317,71 @@
         </div>
         <!-- Dynamically populated by causes.js -->
         <div class="causes-grid" id="causesGrid"></div>
+    </section>
+
+    <!-- Live Feed + Leaderboard -->
+    <section class="live-section" id="liveSection">
+        <div class="causes-header">
+            <span class="section-badge">Live</span>
+            <h2 class="section-title">Real-time <span class="highlight">Donations</span></h2>
+            <p class="section-subtitle">Every donation is indexed on-chain and pushed live to the community feed.</p>
+        </div>
+
+        <div class="live-grid">
+            <div class="live-card">
+                <div class="card-header">
+                    <h3>Live Donation Feed</h3>
+                    <span class="live-indicator" id="feedStatus">Connecting…</span>
+                </div>
+                <ul class="feed-list" id="liveFeedList"></ul>
+                <div class="empty-state" id="liveFeedEmpty">No donations yet</div>
+            </div>
+
+            <div class="live-card">
+                <div class="card-header">
+                    <h3>Top Donors</h3>
+                    <span class="cache-note">Updates every 60s</span>
+                </div>
+                <ol class="leaderboard-list" id="leaderboardList"></ol>
+                <div class="empty-state" id="leaderboardEmpty">No donors yet</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Analytics -->
+    <section class="analytics-section" id="analyticsSection">
+        <div class="causes-header">
+            <span class="section-badge">Analytics</span>
+            <h2 class="section-title">Platform <span class="highlight">Impact</span></h2>
+            <p class="section-subtitle">Live stats generated from on-chain indexed donations.</p>
+        </div>
+
+        <div class="analytics-grid">
+            <div class="analytics-card">
+                <span class="analytics-label">Total Donated</span>
+                <span class="analytics-value" id="statTotalDonated">—</span>
+            </div>
+            <div class="analytics-card">
+                <span class="analytics-label">Total Donations</span>
+                <span class="analytics-value" id="statTotalDonations">—</span>
+            </div>
+            <div class="analytics-card">
+                <span class="analytics-label">Unique Donors</span>
+                <span class="analytics-value" id="statUniqueDonors">—</span>
+            </div>
+            <div class="analytics-card">
+                <span class="analytics-label">Avg Donation</span>
+                <span class="analytics-value" id="statAvgDonation">—</span>
+            </div>
+            <div class="analytics-card">
+                <span class="analytics-label">Active Causes</span>
+                <span class="analytics-value" id="statActiveCauses">—</span>
+            </div>
+            <div class="analytics-card">
+                <span class="analytics-label">Last 24h Volume</span>
+                <span class="analytics-value" id="stat24hVolume">—</span>
+            </div>
+        </div>
     </section>
 
     <!-- Donate Form Section -->
@@ -323,7 +407,7 @@
                 </div>
                 <div class="wallet-balance-badge" id="walletBalance" style="display:none;">
                     <span class="balance-label">Your Balance</span>
-                    <span class="balance-value" id="balanceValue">— UGC</span>
+                    <span class="balance-value" id="balanceValue">— USD</span>
                 </div>
             </div>
 
@@ -339,11 +423,11 @@
             <!-- Amount input -->
             <div class="donate-amount-field">
                 <div class="amount-label-row">
-                    <label class="donate-amount-label" for="donateAmount">Amount (UGC)</label>
+                    <label class="donate-amount-label" for="donateAmount">Amount (USD)</label>
                     <span class="eth-price-indicator" id="ethPriceIndicator">Fetching price…</span>
                 </div>
                 <div class="amount-input-wrap" id="amountInputWrap">
-                    <span class="amount-prefix">UGC</span>
+                    <span class="amount-prefix">$</span>
                     <input type="number" id="donateAmount" class="amount-input"
                            placeholder="10" min="1" step="1" autocomplete="off">
                 </div>
@@ -353,16 +437,16 @@
                 <div class="input-error" id="amountError" role="alert"></div>
                 <!-- Quick-select presets (3 only) -->
                 <div class="preset-btns">
-                    <button class="preset-btn" data-amount="10">10 UGC</button>
-                    <button class="preset-btn" data-amount="50">50 UGC</button>
-                    <button class="preset-btn" data-amount="100">100 UGC</button>
+                    <button class="preset-btn" data-amount="10">$10</button>
+                    <button class="preset-btn" data-amount="50">$50</button>
+                    <button class="preset-btn" data-amount="100">$100</button>
                 </div>
             </div>
 
             <!-- Donation summary line -->
             <div class="donate-summary" id="donateSummary" style="display:none;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                You are donating <strong id="summaryAmount">0</strong> UGC to <strong id="summaryCause">—</strong>
+                You are donating $<strong id="summaryAmount">0</strong> USD to <strong id="summaryCause">—</strong>
             </div>
 
             <!-- Gas-free info line -->
@@ -395,44 +479,15 @@
     <!-- ethers.js via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
 
-    <!-- Dynamic ENV Loader & Sequential Script Runner -->
-    <script>
-        (async () => {
-            window.ENV = {};
-            try {
-                const response = await fetch('.env');
-                if (response.ok) {
-                    const text = await response.text();
-                    text.split('\n').forEach(line => {
-                        const trimmed = line.trim();
-                        if (trimmed && !trimmed.startsWith('#')) {
-                            const idx = trimmed.indexOf('=');
-                            if (idx !== -1) {
-                                const key = trimmed.substring(0, idx).trim();
-                                const val = trimmed.substring(idx + 1).trim().replace(/^["']|["']$/g, '');
-                                window.ENV[key] = val;
-                            }
-                        }
-                    });
-                    console.log('[ENV] Loaded config successfully:', window.ENV);
-                }
-            } catch (e) {
-                console.warn('[ENV] Using default fallbacks:', e);
-            }
+    <!-- ENV Loader (loads synchronously to prevent race conditions) -->
+    <script src="env.js"></script>
 
-            // Load static script assets sequentially
-            const scripts = ['wallet.js', 'causes.js', 'biconomy.js', 'donate.js', 'script.js'];
-            for (const src of scripts) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = src;
-                    script.async = false;
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.body.appendChild(script);
-                });
-            }
-        })();
-    </script>
+    <!-- Application scripts — loaded sequentially via standard tags -->
+    <script src="wallet.js"></script>
+    <script src="causes.js"></script>
+    <script src="ugf.js"></script>
+    <script src="donate.js"></script>
+    <script src="realtime.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

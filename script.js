@@ -7,6 +7,9 @@ function initApp() {
     renderCauses();
     // Wire donate form preset buttons & submit
     initDonateForm();
+    if (typeof initRealtime === 'function') {
+        initRealtime();
+    }
 
 
     // ── Elements ──────────────────────────────────────────────────────────────

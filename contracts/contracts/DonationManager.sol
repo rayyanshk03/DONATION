@@ -18,7 +18,7 @@ contract DonationManagerUGC is ERC2771Context, Ownable {
 
     constructor(address _ugcToken, address _trustedForwarder)
         ERC2771Context(_trustedForwarder)
-        Ownable(msg.sender)
+        Ownable()
     {
         ugcToken = IERC20(_ugcToken);
     }
