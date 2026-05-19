@@ -27,16 +27,16 @@
  */
 
 // ─── ⚠  Configure your Biconomy URLs here ───────────────────────────────────
-// Supports Vite env variables, process env, or hardcoded defaults.
-const BICONOMY_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_BICONOMY_API_KEY)
+// Supports window.ENV (dynamic loader), process env, or hardcoded defaults.
+const BICONOMY_API_KEY = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_BICONOMY_API_KEY)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_BICONOMY_API_KEY)
     || 'YOUR_API_KEY';
 
-let BICONOMY_BUNDLER_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_BICONOMY_BUNDLER_URL)
+let BICONOMY_BUNDLER_URL = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_BICONOMY_BUNDLER_URL)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_BICONOMY_BUNDLER_URL)
     || 'https://bundler.biconomy.io/api/v2/11155111/YOUR_API_KEY';
 
-let BICONOMY_PAYMASTER_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_BICONOMY_PAYMASTER_URL)
+let BICONOMY_PAYMASTER_URL = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_BICONOMY_PAYMASTER_URL)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_BICONOMY_PAYMASTER_URL)
     || 'https://paymaster.biconomy.io/api/v1/11155111/YOUR_API_KEY';
 

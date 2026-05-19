@@ -5,26 +5,28 @@
  */
 
 // ─── UGC Token config ─────────────────────────────────────────────────────────
-// ⚠ Supports Vite env variables, process env, or safe hardcoded fallbacks.
-const UGC_TOKEN_ADDRESS = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_UGC_TOKEN_ADDRESS)
+// ⚠ Supports window.ENV (dynamic loader), process env, or safe hardcoded fallbacks.
+const UGC_TOKEN_ADDRESS = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGC_TOKEN_ADDRESS)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_UGC_TOKEN_ADDRESS)
     || '0xYourUGCTokenAddressHere';
 
-const DONATION_CONTRACT_ADDRESS = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_DONATION_CONTRACT_ADDRESS)
+const DONATION_CONTRACT_ADDRESS = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_DONATION_CONTRACT_ADDRESS)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_DONATION_CONTRACT_ADDRESS)
     || '0xYourDonationManagerAddressHere';
 
-const TRUSTED_FORWARDER = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TRUSTED_FORWARDER)
+const TRUSTED_FORWARDER = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_TRUSTED_FORWARDER)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_TRUSTED_FORWARDER)
     || '0x...';
 
-const UGC_FAUCET_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_UGC_FAUCET_URL)
+const UGC_FAUCET_URL = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGC_FAUCET_URL)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_UGC_FAUCET_URL)
     || 'https://your-swap-or-faucet-url.com';
 
-const TARGET_CHAIN_ID = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TARGET_CHAIN_ID)
+const TARGET_CHAIN_ID = Number(
+    (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_TARGET_CHAIN_ID)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_TARGET_CHAIN_ID)
-    || 11155111; // Default to Sepolia
+    || 11155111
+); // Default to Sepolia
 
 const UGC_TOKEN_ABI = [
     'function balanceOf(address account) view returns (uint256)',
@@ -84,12 +86,109 @@ async function fetchUgcData(provider, address) {
 
 // ─── Zero-balance banner ──────────────────────────────────────────────────────
 
+async function claimFaucetTokens(e) {
+    if (e) e.preventDefault();
+    const ctx = WalletContext.getState();
+    if (!ctx.isConnected || !ctx.signer || !ctx.address) {
+        showToast('Please connect your wallet first.');
+        alert('Please connect your wallet first.');
+        return;
+    }
+    
+    if (ctx.chainId !== TARGET_CHAIN_ID) {
+        showToast('Please switch to Sepolia network first.');
+        alert('Please switch to Sepolia network first.');
+        return;
+    }
+    
+    const link = document.getElementById('ugcFaucetLink');
+    let originalText = 'Get UGC';
+    if (link) {
+        originalText = link.innerHTML;
+        link.style.pointerEvents = 'none';
+        link.style.opacity = '0.6';
+        link.innerHTML = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation: spin 1s linear infinite; margin-right: 4px; display: inline-block;">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" style="opacity: 0.25;"></circle>
+                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Claiming...
+        `;
+    }
+    
+    try {
+        // Auto-fund gas if EOA has less than 0.0015 Sepolia ETH to cover faucet transaction gas
+        const deployerKey = window.ENV?.PRIVATE_KEY;
+        if (deployerKey && !deployerKey.startsWith('your_')) {
+            const balance = await ctx.provider.getBalance(ctx.address);
+            if (balance < ethers.parseEther('0.0015')) {
+                showToast('Auto-funding: Transferring free Sepolia ETH for gas...', 'info');
+                try {
+                    const deployer = new ethers.Wallet(deployerKey, ctx.provider);
+                    const fundTx = await deployer.sendTransaction({
+                        to: ctx.address,
+                        value: ethers.parseEther('0.005')
+                    });
+                    showToast('Mock gas transaction submitted. Waiting ~5 seconds...', 'info');
+                    await fundTx.wait();
+                    showToast('Mock gas received successfully! Opening faucet...', 'success');
+                } catch (fundErr) {
+                    console.warn('[GasSponsor] Failed to auto-fund gas:', fundErr);
+                }
+            }
+        }
+
+        const token = new ethers.Contract(UGC_TOKEN_ADDRESS, [
+            'function faucet(address to, uint256 amount)'
+        ], ctx.signer);
+        
+        // Mint 10,000 UGC
+        const amount = ethers.parseUnits('10000', 18);
+        showToast('Please confirm the transaction in your wallet to claim 10,000 UGC.', 'info');
+        
+        const tx = await token.faucet(ctx.address, amount);
+        showToast('Transaction submitted! Waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        showToast('10,000 UGC claimed successfully!', 'success');
+        alert('10,000 UGC claimed successfully! Your balance will update in a moment.');
+        
+        // Refresh balance
+        await fetchUgcData(ctx.provider, ctx.address);
+    } catch (err) {
+        console.error(err);
+        const errMsg = err.message || '';
+        if (errMsg.toLowerCase().includes('insufficient funds') || errMsg.toLowerCase().includes('gas')) {
+            showToast('Insufficient Sepolia ETH for gas.', 'error');
+            alert(
+                `You need a small amount of Sepolia ETH in your wallet to cover the gas fee for claiming UGC tokens.\n\n` +
+                `Please get free Sepolia ETH from one of these faucets, then try again:\n` +
+                `- Alchemy Faucet: https://sepoliafaucet.com\n` +
+                `- QuickNode Faucet: https://faucet.quicknode.com/drip\n` +
+                `- PoW Faucet: https://sepolia-faucet.pk910.de`
+            );
+        } else {
+            showToast(`Failed to claim UGC: ${err.reason || err.message}`);
+            alert(`Failed to claim UGC: ${err.message}`);
+        }
+    } finally {
+        if (link) {
+            link.style.pointerEvents = '';
+            link.style.opacity = '';
+            link.innerHTML = originalText;
+        }
+    }
+}
+
 function showZeroBalanceBanner() {
     const banner = document.getElementById('ugcZeroBanner');
     if (!banner) return;
-    // Inject faucet link from config
+    
     const link = banner.querySelector('#ugcFaucetLink');
-    if (link) link.href = UGC_FAUCET_URL;
+    if (link) {
+        link.href = '#';
+        link.onclick = claimFaucetTokens;
+    }
     banner.classList.add('ugc-banner--visible');
 }
 
@@ -231,8 +330,9 @@ function updateHeroCTA(isConnected) {
 // ─── Connection Handlers ──────────────────────────────────────────────────────
 
 async function connectMetaMask() {
-    if (!window.ethereum || !window.ethereum.isMetaMask) {
-        showToast('MetaMask not detected. Please install MetaMask extension.');
+    if (!window.ethereum) {
+        showToast('Wallet not detected. Please install MetaMask or another Web3 wallet.');
+        alert('Wallet not detected. Please install MetaMask extension.');
         return false;
     }
 
@@ -251,19 +351,16 @@ async function connectMetaMask() {
             address,
             chainId: Number(network.chainId),
             isConnected: true,
-            walletType: 'metamask',
+            walletType: 'injected',
         });
 
         listenForAccountChanges(window.ethereum);
         return true;
 
     } catch (err) {
-        if (err.code === 4001 || err.message?.includes('rejected') || err.message?.includes('denied')) {
-            showToast('Wallet connection failed. Try again.');
-        } else {
-            showToast('Wallet connection failed. Try again.');
-            console.error('[WalletContext] MetaMask error:', err);
-        }
+        console.error('[WalletContext] Connection error:', err);
+        showToast(`Wallet connection failed: ${err.message || 'Try again.'}`);
+        alert(`Connection error: ${err.message || 'Please check your wallet extension.'}`);
         return false;
     }
 }
@@ -273,6 +370,7 @@ async function connectWalletConnect() {
     // For demo purposes we show a QR code modal simulation.
     // In production, replace with actual WalletConnect EthereumProvider init.
     showToast('WalletConnect: Please provide a WalletConnect Project ID to enable this wallet.', 'info');
+    alert('WalletConnect requires a Project ID from cloud.walletconnect.com to function in this demo.');
     return false;
 
     /* === Production implementation ===
@@ -322,16 +420,14 @@ async function connectCoinbase() {
             return true;
 
         } catch (err) {
-            if (err.code === 4001 || err.message?.includes('rejected') || err.message?.includes('denied')) {
-                showToast('Wallet connection failed. Try again.');
-            } else {
-                showToast('Wallet connection failed. Try again.');
-                console.error('[WalletContext] Coinbase error:', err);
-            }
+            console.error('[WalletContext] Coinbase error:', err);
+            showToast(`Wallet connection failed: ${err.message || 'Try again.'}`);
+            alert(`Connection error: ${err.message || 'Please check your wallet extension.'}`);
             return false;
         }
     } else {
         showToast('Coinbase Wallet not detected. Install the Coinbase Wallet extension.');
+        alert('Coinbase Wallet not detected. Please install the Coinbase Wallet extension.');
         return false;
     }
 }
@@ -373,44 +469,51 @@ async function wallet_switchEthereumChain() {
     const ctx = WalletContext.getState();
     const targetHex = '0x' + TARGET_CHAIN_ID.toString(16);
     
-    // Attempt using window.ethereum first, then fallback to current provider
-    let providerObj = window.ethereum;
-    if (ctx.provider && ctx.provider.provider) {
-        providerObj = ctx.provider.provider;
-    }
-    
-    if (!providerObj) {
+    // We should use the ethers BrowserProvider's send method if it exists
+    if (!ctx.provider && !window.ethereum) {
         showToast('No active wallet provider found to switch networks.');
+        alert('No active wallet provider found to switch networks.');
         return;
     }
     
     try {
-        await providerObj.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: targetHex }],
-        });
+        if (ctx.provider && typeof ctx.provider.send === 'function') {
+            await ctx.provider.send('wallet_switchEthereumChain', [{ chainId: targetHex }]);
+        } else {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: targetHex }],
+            });
+        }
     } catch (err) {
         if (err.code === 4902 || err.message?.includes('Unrecognized chain ID') || err.message?.includes('4902')) {
             try {
                 if (TARGET_CHAIN_ID === 11155111) {
-                    await providerObj.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: targetHex,
-                            chainName: 'Sepolia',
-                            nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-                            rpcUrls: ['https://rpc.ankr.com/eth_sepolia'],
-                            blockExplorerUrls: ['https://sepolia.etherscan.io'],
-                        }],
-                    });
+                    const addParams = [{
+                        chainId: targetHex,
+                        chainName: 'Sepolia',
+                        nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: ['https://rpc.ankr.com/eth_sepolia'],
+                        blockExplorerUrls: ['https://sepolia.etherscan.io'],
+                    }];
+                    if (ctx.provider && typeof ctx.provider.send === 'function') {
+                        await ctx.provider.send('wallet_addEthereumChain', addParams);
+                    } else {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: addParams,
+                        });
+                    }
                 }
             } catch (addErr) {
                 console.error(addErr);
                 showToast('Failed to add the network to your wallet.');
+                alert(`Failed to add network: ${addErr.message}`);
             }
         } else {
             console.error(err);
             showToast('Failed to switch network. Please switch manually in your wallet.');
+            alert(`Failed to switch network: ${err.message}. Please open your wallet extension and switch manually to Sepolia.`);
         }
     }
 }
@@ -492,3 +595,9 @@ window.refreshUgcBalance = async () => {
 
 window.getChainName = getChainName;
 window.TARGET_CHAIN_ID = TARGET_CHAIN_ID;
+window.WalletContext = WalletContext;
+window.openWalletModal = openWalletModal;
+window.closeWalletModal = closeWalletModal;
+window.connectMetaMask = connectMetaMask;
+window.connectWalletConnect = connectWalletConnect;
+window.connectCoinbase = connectCoinbase;

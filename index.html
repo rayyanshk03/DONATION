@@ -394,10 +394,45 @@
 
     <!-- ethers.js via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
-    <script src="wallet.js"></script>
-    <script src="causes.js"></script>
-    <script src="biconomy.js"></script>
-    <script src="donate.js"></script>
-    <script src="script.js"></script>
+
+    <!-- Dynamic ENV Loader & Sequential Script Runner -->
+    <script>
+        (async () => {
+            window.ENV = {};
+            try {
+                const response = await fetch('.env');
+                if (response.ok) {
+                    const text = await response.text();
+                    text.split('\n').forEach(line => {
+                        const trimmed = line.trim();
+                        if (trimmed && !trimmed.startsWith('#')) {
+                            const idx = trimmed.indexOf('=');
+                            if (idx !== -1) {
+                                const key = trimmed.substring(0, idx).trim();
+                                const val = trimmed.substring(idx + 1).trim().replace(/^["']|["']$/g, '');
+                                window.ENV[key] = val;
+                            }
+                        }
+                    });
+                    console.log('[ENV] Loaded config successfully:', window.ENV);
+                }
+            } catch (e) {
+                console.warn('[ENV] Using default fallbacks:', e);
+            }
+
+            // Load static script assets sequentially
+            const scripts = ['wallet.js', 'causes.js', 'biconomy.js', 'donate.js', 'script.js'];
+            for (const src of scripts) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.async = false;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.body.appendChild(script);
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // ─── Contract config ─────────────────────────────────────────────────────────
-// Supports Vite env variables, process env, or global fallbacks.
-const CONTRACT_ADDRESS = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_DONATION_CONTRACT_ADDRESS)
+// Supports window.ENV (dynamic loader), process env, or global fallbacks.
+const CONTRACT_ADDRESS = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_DONATION_CONTRACT_ADDRESS)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_DONATION_CONTRACT_ADDRESS)
     || (typeof DONATION_CONTRACT_ADDRESS !== 'undefined' ? DONATION_CONTRACT_ADDRESS : '0xYourDonationManagerAddressHere');
 const CONTRACT_ABI = [

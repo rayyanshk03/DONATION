@@ -2,7 +2,7 @@
  * script.js — Main entry point.
  * Wires up UI events and delegates to WalletContext / wallet.js.
  */
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     // Render dynamic causes grid
     renderCauses();
     // Wire donate form preset buttons & submit
@@ -99,4 +99,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     })();
 
-});
+}
+initApp();
