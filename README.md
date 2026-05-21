@@ -1,12 +1,12 @@
 # CryptoAid — Gasless Donation Platform
 
-CryptoAid is a gasless Web3 donation app that lets users donate Mock USD without holding ETH. The frontend uses the UGF API to quote/settle/execute transactions, while a backend indexer stores donation data and pushes live updates.
+CryptoAid is a gasless Web3 donation app that lets users donate Mock USD without holding ETH. The frontend uses the official **UGF Testnet SDK** to authenticate, quote, settle, execute, and confirm transactions, while a backend indexer stores donation data and pushes live updates.
 
 ## How the system works
 
 1. **Frontend (static HTML/JS)**  
    - `index.html` + `wallet.js`, `donate.js`, `ugf.js`, `realtime.js` render the UI and connect wallets via `ethers.js`.  
-   - When a user donates, the app creates an ERC‑20 permit (if supported) or does a normal approve, then calls the **UGF API** to run the quote → settle → execute → confirm lifecycle.  
+   - When a user donates, the app creates an ERC‑20 permit (if supported) or performs a gasless approve via UGF, then uses the **UGF Testnet SDK** to run the quote → settle → execute → confirm lifecycle.  
    - The donation call targets the `DonationVault` contract. UGF pays gas in Mock USD, so the user spends **no ETH**.
 
 2. **Smart contracts (Base Sepolia testnet)**  
@@ -33,7 +33,7 @@ CryptoAid is a gasless Web3 donation app that lets users donate Mock USD without
 - **PostgreSQL** (required for backend)
 - **Redis** (optional, enables leaderboard caching)
 - A **wallet** (MetaMask/WalletConnect) with Base Sepolia testnet access
-- **UGF API key** (testnet) from https://dashboard.ugf.network
+- **UGF Testnet SDK** access (no API key required — wallet signature auth is used)
 
 ### 1) Clone and install dependencies
 
@@ -60,8 +60,8 @@ Option A — **edit `env.js` directly** (quickest):
 - `VITE_UGC_TOKEN_ADDRESS`
 - `VITE_DONATION_CONTRACT_ADDRESS`
 - `VITE_TARGET_CHAIN_ID` (Base Sepolia = `84532`)
-- `VITE_UGF_API_KEY`
-- `VITE_UGF_ENDPOINT`
+- `VITE_UGF_API_KEY` (legacy, unused by the SDK)
+- `VITE_UGF_ENDPOINT` (optional override; defaults to the UGF gateway)
 - `VITE_UGC_FAUCET_URL`
 - `VITE_BACKEND_URL` (default `http://localhost:4000`)
 - `VITE_WS_URL` (default `ws://localhost:4000/ws`)
@@ -134,4 +134,4 @@ This deploys **MockUSD** + **DonationVault** and overwrites `env.js` with the ne
 
 - The backend indexer requires a valid `VAULT_ADDRESS` and RPC URL to track donations.  
 - Redis is optional; if missing, the backend still runs (leaderboard cache disabled).  
-- Users need a small amount of testnet ETH for faucet transactions unless gas is sponsored in `wallet.js`.
+- Mock USD is obtained via the UGF faucet link; no ETH is required for the claim flow.

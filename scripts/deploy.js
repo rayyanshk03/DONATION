@@ -25,21 +25,14 @@ async function main() {
   console.log(`\n📦  Deployer: ${deployer.address}`);
   console.log(`💰  Balance:  ${ethers.formatEther(balance)} ETH\n`);
 
-  // ── 1. Deploy MockUSD ──────────────────────────────────────────────────────
-  console.log("🔨  Deploying MockUSD...");
-  const musdArtifact = JSON.parse(
-    fs.readFileSync("./contracts/artifacts/contracts/MockUSD.sol/MockUSD.json", "utf8")
-  );
-  const MockUSD = new ethers.ContractFactory(musdArtifact.abi, musdArtifact.bytecode, deployer);
-  const mockUsd = await MockUSD.deploy();
-  await mockUsd.waitForDeployment();
-  const mockUsdAddr = await mockUsd.getAddress();
-  console.log(`✅  MockUSD deployed: ${mockUsdAddr}`);
+  // ── 1. Use Official UGF TYI_MOCK_USD ────────────────────────────────────────
+  const mockUsdAddr = "0x27DC1C167AeF232bb1e21073304B526726a8727e";
+  console.log(`✅  Using official TYI_MOCK_USD: ${mockUsdAddr}`);
 
   // ── 2. Deploy DonationVault ────────────────────────────────────────────────
   console.log("🔨  Deploying DonationVault...");
   const vaultArtifact = JSON.parse(
-    fs.readFileSync("./contracts/artifacts/contracts/DonationVault.sol/DonationVault.json", "utf8")
+    fs.readFileSync("./contracts/artifacts/contracts/contracts/DonationVault.sol/DonationVault.json", "utf8")
   );
   const Vault = new ethers.ContractFactory(vaultArtifact.abi, vaultArtifact.bytecode, deployer);
   const vault = await Vault.deploy();
@@ -82,9 +75,9 @@ window.ENV = {
   VITE_UGC_TOKEN_ADDRESS: "${mockUsdAddr}",
   VITE_DONATION_CONTRACT_ADDRESS: "${vaultAddr}",
   VITE_TARGET_CHAIN_ID: "84532",
-  VITE_UGF_API_KEY: "ugf_test_your_key_here",
-  VITE_UGF_ENDPOINT: "https://testnet.api.ugf.network",
-  VITE_UGC_FAUCET_URL: "https://faucet.ugf.network",
+  VITE_UGF_API_KEY: "ugf_test_optional_legacy",
+  VITE_UGF_ENDPOINT: "https://gateway.universalgasframework.com",
+  VITE_UGC_FAUCET_URL: "https://universalgasframework.com/faucets",
   VITE_BACKEND_URL: "http://localhost:4000",
   VITE_WS_URL: "ws://localhost:4000/ws"
 };

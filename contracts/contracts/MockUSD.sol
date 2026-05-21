@@ -17,7 +17,7 @@ contract MockUSD is ERC20, ERC20Permit, Ownable {
     constructor()
         ERC20("Mock USD", "MUSD")
         ERC20Permit("Mock USD")
-        Ownable()
+        Ownable(msg.sender)
     {
         // Mint 1,000,000 MUSD to deployer for initial liquidity
         _mint(msg.sender, 1_000_000 * 10 ** decimals());

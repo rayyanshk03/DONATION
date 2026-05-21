@@ -20,13 +20,13 @@ const TRUSTED_FORWARDER = (typeof window !== 'undefined' && window.ENV && window
 
 const UGC_FAUCET_URL = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGC_FAUCET_URL)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_UGC_FAUCET_URL)
-    || 'https://your-swap-or-faucet-url.com';
+    || 'https://universalgasframework.com/faucets';
 
 const TARGET_CHAIN_ID = Number(
     (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_TARGET_CHAIN_ID)
     || (typeof process !== 'undefined' && process.env && process.env.VITE_TARGET_CHAIN_ID)
-    || 11155111
-); // Default to Sepolia
+    || 84532
+); // Default to Base Sepolia
 
 const UGC_TOKEN_ABI = [
     'function balanceOf(address account) view returns (uint256)',
@@ -50,14 +50,19 @@ async function fetchUgcData(provider, address) {
     if (!provider || !address) return;
     try {
         const token = new ethers.Contract(UGC_TOKEN_ADDRESS, UGC_TOKEN_ABI, provider);
-        const [rawBalance, decimals, rawAllowance] = await Promise.all([
+        const [rawBalance, rawDecimals, rawAllowance] = await Promise.all([
             token.balanceOf(address),
             token.decimals(),
             token.allowance(address, DONATION_CONTRACT_ADDRESS),
         ]);
+        const decimals = Number(rawDecimals);
 
         // Persist in context so donate.js can read ugcBalance / ugcAllowance
-        WalletContext.setState({ ugcBalance: rawBalance, ugcAllowance: rawAllowance });
+        WalletContext.setState({ 
+            ugcBalance: rawBalance, 
+            ugcAllowance: rawAllowance,
+            ugcDecimals: decimals
+        });
 
         // Format for the navbar pill
         const formatted = parseFloat(ethers.formatUnits(rawBalance, decimals));
@@ -96,88 +101,20 @@ async function claimFaucetTokens(e) {
     }
     
     if (ctx.chainId !== TARGET_CHAIN_ID) {
-        showToast('Please switch to Sepolia network first.');
-        alert('Please switch to Sepolia network first.');
+        showToast('Please switch to Base Sepolia network first.');
+        alert('Please switch to Base Sepolia network first.');
         return;
     }
-    
-    const link = document.getElementById('ugcFaucetLink');
-    let originalText = 'Get Mock USD';
-    if (link) {
-        originalText = link.innerHTML;
-        link.style.pointerEvents = 'none';
-        link.style.opacity = '0.6';
-        link.innerHTML = `
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation: spin 1s linear infinite; margin-right: 4px; display: inline-block;">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" style="opacity: 0.25;"></circle>
-                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Claiming...
-        `;
-    }
-    
-    try {
-        // Auto-fund gas if EOA has less than 0.0015 Sepolia ETH to cover faucet transaction gas
-        const deployerKey = window.ENV?.PRIVATE_KEY;
-        if (deployerKey && !deployerKey.startsWith('your_')) {
-            const balance = await ctx.provider.getBalance(ctx.address);
-            if (balance < ethers.parseEther('0.0015')) {
-                showToast('Auto-funding: Transferring free Sepolia ETH for gas...', 'info');
-                try {
-                    const deployer = new ethers.Wallet(deployerKey, ctx.provider);
-                    const fundTx = await deployer.sendTransaction({
-                        to: ctx.address,
-                        value: ethers.parseEther('0.005')
-                    });
-                    showToast('Mock gas transaction submitted. Waiting ~5 seconds...', 'info');
-                    await fundTx.wait();
-                    showToast('Mock gas received successfully! Opening faucet...', 'success');
-                } catch (fundErr) {
-                    console.warn('[GasSponsor] Failed to auto-fund gas:', fundErr);
-                }
-            }
-        }
 
-        const token = new ethers.Contract(UGC_TOKEN_ADDRESS, [
-            'function faucet(address to, uint256 amount)'
-        ], ctx.signer);
-        
-        // Mint 10,000 Mock USD
-        const amount = ethers.parseUnits('10000', 18);
-        showToast('Please confirm the transaction in your wallet to claim 10,000 Mock USD.', 'info');
-        
-        const tx = await token.faucet(ctx.address, amount);
-        showToast('Transaction submitted! Waiting for confirmation...', 'info');
-        
-        await tx.wait();
-        showToast('10,000 Mock USD claimed successfully!', 'success');
-        alert('10,000 Mock USD claimed successfully! Your balance will update in a moment.');
-        
-        // Refresh balance
-        await fetchUgcData(ctx.provider, ctx.address);
-    } catch (err) {
-        console.error(err);
-        const errMsg = err.message || '';
-        if (errMsg.toLowerCase().includes('insufficient funds') || errMsg.toLowerCase().includes('gas')) {
-            showToast('Insufficient Sepolia ETH for gas.', 'error');
-            alert(
-                `You need a small amount of Sepolia ETH in your wallet to cover the gas fee for claiming Mock USD.\n\n` +
-                `Please get free Sepolia ETH from one of these faucets, then try again:\n` +
-                `- Alchemy Faucet: https://sepoliafaucet.com\n` +
-                `- QuickNode Faucet: https://faucet.quicknode.com/drip\n` +
-                `- PoW Faucet: https://sepolia-faucet.pk910.de`
-            );
-        } else {
-            showToast(`Failed to claim Mock USD: ${err.reason || err.message}`);
-            alert(`Failed to claim Mock USD: ${err.message}`);
-        }
-    } finally {
-        if (link) {
-            link.style.pointerEvents = '';
-            link.style.opacity = '';
-            link.innerHTML = originalText;
-        }
+    const faucetUrl = UGC_FAUCET_URL;
+    if (!faucetUrl || faucetUrl.includes('your-swap-or-faucet-url')) {
+        showToast('Mock USD faucet is not configured yet.', 'error');
+        alert('Mock USD faucet is not configured. Please update VITE_UGC_FAUCET_URL.');
+        return;
     }
+
+    showToast('Opening the Mock USD faucet in a new tab…', 'info');
+    window.open(faucetUrl, '_blank', 'noopener,noreferrer');
 }
 
 function showZeroBalanceBanner() {
@@ -186,7 +123,7 @@ function showZeroBalanceBanner() {
     
     const link = banner.querySelector('#ugcFaucetLink');
     if (link) {
-        link.href = '#';
+        link.href = UGC_FAUCET_URL || '#';
         link.onclick = claimFaucetTokens;
     }
     banner.classList.add('ugc-banner--visible');
@@ -205,6 +142,7 @@ const WalletContext = (() => {
         walletType:   null,
         ugcBalance:   null,   // raw BigInt from balanceOf()
         ugcAllowance: null,   // raw BigInt from allowance() vs DonationManager
+        ugcDecimals:  null,   // standard Number from decimals()
     };
 
     const listeners = new Set();
@@ -489,13 +427,13 @@ async function wallet_switchEthereumChain() {
     } catch (err) {
         if (err.code === 4902 || err.message?.includes('Unrecognized chain ID') || err.message?.includes('4902')) {
             try {
-                if (TARGET_CHAIN_ID === 11155111) {
+                if (TARGET_CHAIN_ID === 84532) {
                     const addParams = [{
                         chainId: targetHex,
-                        chainName: 'Sepolia',
-                        nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-                        rpcUrls: ['https://rpc.ankr.com/eth_sepolia'],
-                        blockExplorerUrls: ['https://sepolia.etherscan.io'],
+                        chainName: 'Base Sepolia',
+                        nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: ['https://sepolia.base.org'],
+                        blockExplorerUrls: ['https://sepolia.basescan.org'],
                     }];
                     if (ctx.provider && typeof ctx.provider.send === 'function') {
                         await ctx.provider.send('wallet_addEthereumChain', addParams);
@@ -514,7 +452,7 @@ async function wallet_switchEthereumChain() {
         } else {
             console.error(err);
             showToast('Failed to switch network. Please switch manually in your wallet.');
-            alert(`Failed to switch network: ${err.message}. Please open your wallet extension and switch manually to Sepolia.`);
+            alert(`Failed to switch network: ${err.message}. Please open your wallet extension and switch manually to Base Sepolia.`);
         }
     }
 }

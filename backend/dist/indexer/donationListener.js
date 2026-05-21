@@ -6,7 +6,30 @@ import { redis } from "../services/redis.js";
 import { broadcast } from "../websocket/server.js";
 const VAULT_ABI = [
     "event DonationMade(address indexed donor, uint256 indexed causeId, uint256 amount, uint256 timestamp)",
+    "function donationToken() view returns (address)",
 ];
+let cachedDecimals = null;
+let tokenAddress = null;
+async function getDecimals(vaultContract, provider) {
+    if (cachedDecimals !== null)
+        return cachedDecimals;
+    try {
+        if (!tokenAddress) {
+            tokenAddress = await vaultContract.donationToken();
+        }
+        if (tokenAddress && tokenAddress !== "0x0000000000000000000000000000000000000000") {
+            const tokenContract = new ethers.Contract(tokenAddress, ["function decimals() view returns (uint8)"], provider);
+            const dec = await tokenContract.decimals();
+            cachedDecimals = Number(dec);
+            console.log(`[Indexer] Detected token decimals dynamically: ${cachedDecimals}`);
+            return cachedDecimals;
+        }
+    }
+    catch (err) {
+        console.warn("[Indexer] Failed to query token decimals dynamically, falling back to 18 decimals:", err.message || err);
+    }
+    return 18; // default fallback
+}
 function getProvider() {
     if (env.rpcWsUrl && env.rpcWsUrl.startsWith("ws")) {
         try {
@@ -24,7 +47,8 @@ export function startDonationListener() {
     console.log("* Connected to Base Sepolia RPC");
     console.log("* Listening for DonationVault events");
     contract.on("DonationMade", async (donor, causeId, amount, timestamp, event) => {
-        const amountFormatted = ethers.formatUnits(amount, 18);
+        const decimals = await getDecimals(contract, provider);
+        const amountFormatted = ethers.formatUnits(amount, decimals);
         const amountDecimal = new Prisma.Decimal(amountFormatted);
         const causeIdNum = Number(causeId);
         try {

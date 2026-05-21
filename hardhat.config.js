@@ -8,8 +8,14 @@ export default {
   solidity: {
     version: "0.8.27",
     settings: {
+      evmVersion: "cancun",
       optimizer: { enabled: true, runs: 200 },
     },
+  },
+  paths: {
+    sources: "./contracts/contracts",
+    artifacts: "./contracts/artifacts",
+    cache: "./contracts/cache",
   },
   networks: {
     sepolia: {

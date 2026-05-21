@@ -26,5 +26,8 @@
     "ethers": "^6.13.0",
     "hardhat": "^2.22.3",
     "prisma": "^7.8.0"
+  },
+  "dependencies": {
+    "@tychilabs/ugf-testnet-js": "^0.1.3"
   }
 }

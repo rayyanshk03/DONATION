@@ -3,8 +3,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title DonationVault
@@ -55,7 +56,7 @@ contract DonationVault is Ownable, ReentrancyGuard {
     event CauseStatusChanged(uint256 indexed causeId, bool active);
 
     // ─── Constructor ──────────────────────────────────────────────────────────
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     function setDonationToken(address _donationToken) external onlyOwner {
         require(_donationToken != address(0), "Zero token address");
@@ -108,6 +109,44 @@ contract DonationVault is Ownable, ReentrancyGuard {
 
         require(address(donationToken) != address(0), "Token not set");
         // SafeERC20 — reverts on failure, handles non-standard returns
+        donationToken.safeTransferFrom(msg.sender, c.wallet, _amount);
+
+        c.totalDonated += _amount;
+        c.donorCount   += 1;
+        totalDonations     += _amount;
+        totalDonationCount += 1;
+
+        emit DonationMade(msg.sender, _causeId, _amount, block.timestamp);
+    }
+
+    /**
+     * @notice Donate with an EIP-2612 permit signature in a single transaction.
+     */
+    function donateWithPermit(
+        uint256 _causeId,
+        uint256 _amount,
+        uint256 _deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external nonReentrant {
+        Cause storage c = causes[_causeId];
+        require(c.wallet != address(0), "Unknown cause");
+        require(c.active, "Cause inactive");
+        require(_amount > 0, "Amount must be > 0");
+
+        require(address(donationToken) != address(0), "Token not set");
+
+        IERC20Permit(address(donationToken)).permit(
+            msg.sender,
+            address(this),
+            _amount,
+            _deadline,
+            v,
+            r,
+            s
+        );
+
         donationToken.safeTransferFrom(msg.sender, c.wallet, _amount);
 
         c.totalDonated += _amount;

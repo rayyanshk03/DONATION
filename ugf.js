@@ -1,14 +1,15 @@
 /**
  * ugf.js — UGF (Universal Gas Facilitation) Transaction Engine
  * ─────────────────────────────────────────────────────────────
- * Replaces biconomy.js entirely. This is the ONLY gas abstraction
- * layer in CryptoAid — no ERC-4337, no paymasters, no bundlers.
+ * Uses the official UGF Testnet SDK (@tychilabs/ugf-testnet-js)
+ * for gasless transactions on Base Sepolia only.
  *
  * UGF Lifecycle:
- *   1. QUOTE   — estimate gas cost in Mock USD
- *   2. SETTLE  — lock Mock USD for gas payment
- *   3. EXECUTE — submit transaction to Base Sepolia
- *   4. CONFIRM — on-chain finality + receipt
+ *   1. AUTH    — sign in to UGF
+ *   2. QUOTE   — estimate gas cost in Mock USD
+ *   3. SETTLE  — authorize Mock USD payment (x402)
+ *   4. EXECUTE — submit transaction to Base Sepolia
+ *   5. CONFIRM — on-chain finality + receipt
  *
  * Public API (called from donate.js):
  *
@@ -16,8 +17,8 @@
  *     signer,            // ethers.js Signer
  *     provider,          // ethers.js Provider
  *     chainId,           // number (84532 for Base Sepolia)
- *     to,                // DonationVault address (or array for batch)
- *     data,              // encoded calldata (or array for batch)
+ *     to,                // Target contract address
+ *     data,              // Encoded calldata
  *     onQuote(quote),    // called after quote phase
  *     onSettle(),        // called after settle phase
  *     onExecute(txHash), // called after execute phase
@@ -26,13 +27,77 @@
  */
 
 // ─── Configuration ───────────────────────────────────────────────────────────
-const UGF_API_KEY = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGF_API_KEY)
-    || (typeof process !== 'undefined' && process.env && process.env.VITE_UGF_API_KEY)
-    || 'ugf_test_YOUR_KEY';
+const UGF_BASE_URL = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGF_ENDPOINT)
+    || null;
 
-const UGF_ENDPOINT = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGF_ENDPOINT)
-    || (typeof process !== 'undefined' && process.env && process.env.VITE_UGF_ENDPOINT)
-    || 'https://testnet.api.ugf.network';
+// UGF SDK CDN URL — official ESM distribution
+// We try multiple sources for resilience
+const UGF_SDK_URLS = [
+    './vendor/ugf-testnet-js.mjs',
+    'https://unpkg.com/@tychilabs/ugf-testnet-js/dist/index.mjs',
+    'https://cdn.jsdelivr.net/npm/@tychilabs/ugf-testnet-js/dist/index.mjs',
+    'https://unpkg.com/@tychilabs/ugf-testnet-js@latest/dist/index.mjs',
+];
+
+let ugfSdkPromise = null;
+let ugfSdkModule = null;
+let ugfClient = null;
+let sdkLoadError = null;
+
+/**
+ * Attempts to dynamically import the UGF SDK from multiple CDN sources.
+ * Falls back between CDNs if one fails. Caches the result.
+ */
+async function loadUGFSDK() {
+    if (ugfSdkModule) return ugfSdkModule;
+    if (ugfSdkPromise) return ugfSdkPromise;
+
+    ugfSdkPromise = (async () => {
+        for (const url of UGF_SDK_URLS) {
+            try {
+                console.log(`[UGF] Loading SDK from: ${url}`);
+                const sdk = await import(/* webpackIgnore: true */ url);
+                console.log('[UGF] SDK loaded successfully. Exports:', Object.keys(sdk));
+                ugfSdkModule = sdk;
+                sdkLoadError = null;
+                return sdk;
+            } catch (err) {
+                console.warn(`[UGF] Failed to load from ${url}:`, err.message);
+                continue;
+            }
+        }
+        // All CDN sources failed
+        sdkLoadError = new Error(
+            'Could not load UGF SDK from any CDN source. ' +
+            'Please check your internet connection or try again later. ' +
+            'The SDK (@tychilabs/ugf-testnet-js) may be temporarily unavailable.'
+        );
+        throw sdkLoadError;
+    })();
+
+    return ugfSdkPromise;
+}
+
+/**
+ * Returns a configured UGF client instance.
+ * The client is created lazily and cached.
+ */
+async function getUGFClient() {
+    if (ugfClient) return ugfClient;
+    const sdk = await loadUGFSDK();
+
+    // The UGFClient constructor accepts optional config
+    // If the SDK exports UGFClient, use it; otherwise try default export
+    const UGFClientClass = sdk.UGFClient || sdk.default?.UGFClient || sdk.default;
+    if (!UGFClientClass) {
+        throw new Error('[UGF] SDK loaded but UGFClient class not found. SDK exports: ' + Object.keys(sdk).join(', '));
+    }
+
+    ugfClient = UGF_BASE_URL
+        ? new UGFClientClass({ baseUrl: UGF_BASE_URL })
+        : new UGFClientClass();
+    return ugfClient;
+}
 
 // Base Sepolia block explorer
 const EXPLORER_BASE = 'https://sepolia.basescan.org/tx/';
@@ -54,179 +119,23 @@ function getUGFStatus() {
     return ugfCurrentStatus;
 }
 
-// ─── HTTP Helper ─────────────────────────────────────────────────────────────
+// ─── SDK Helpers ──────────────────────────────────────────────────────────────
 
 /**
- * Makes an authenticated request to the UGF API.
- * @param {string} path    — API path (e.g. '/v1/quote')
- * @param {object} body    — JSON body
- * @param {number} timeout — request timeout in ms (default 30s)
- * @returns {Promise<object>} parsed JSON response
+ * Authenticates with the UGF service.
+ * The SDK may expose different auth patterns depending on version.
  */
-async function ugfRequest(path, body, timeout = 30000) {
-    const url = `${UGF_ENDPOINT}${path}`;
-    const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${UGF_API_KEY}`,
-            'X-UGF-Version': '2024-01-01',
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeout),
-    });
-
-    if (!resp.ok) {
-        const errBody = await resp.text().catch(() => '');
-        throw new Error(`UGF API ${resp.status}: ${errBody || resp.statusText}`);
+async function ensureUGFAuth(client, signer) {
+    // Try multiple auth patterns the SDK might expose
+    if (client.auth && typeof client.auth.login === 'function') {
+        await client.auth.login(signer);
+    } else if (typeof client.authenticate === 'function') {
+        await client.authenticate(signer);
+    } else if (typeof client.login === 'function') {
+        await client.login(signer);
+    } else {
+        console.warn('[UGF] No explicit auth method found on client. SDK may handle auth implicitly.');
     }
-
-    const data = await resp.json();
-    if (data.error) {
-        const e = new Error(data.error.message || JSON.stringify(data.error));
-        e.code = data.error.code;
-        throw e;
-    }
-    return data;
-}
-
-// ─── Phase 1: QUOTE ──────────────────────────────────────────────────────────
-/**
- * Requests a gas cost quote from UGF in Mock USD.
- *
- * UGF estimates the gas required for the transaction and returns
- * the cost denominated in Mock USD. The user never sees ETH amounts.
- *
- * @param {object} opts
- * @param {string}          opts.from      — Sender's EOA address
- * @param {string|string[]} opts.to        — Target contract(s)
- * @param {string|string[]} opts.data      — Encoded calldata(s)
- * @param {number}          opts.chainId   — Target chain (84532 = Base Sepolia)
- * @returns {Promise<{quoteId: string, gasCostUsd: string, expiresAt: number}>}
- */
-async function ugfQuote({ from, to, data, chainId }) {
-    ugfCurrentStatus = UGF_STATUS.QUOTING;
-
-    const calls = Array.isArray(to)
-        ? to.map((addr, i) => ({ target: addr, calldata: data[i], value: '0' }))
-        : [{ target: to, calldata: data, value: '0' }];
-
-    const result = await ugfRequest('/v1/quote', {
-        sender: from,
-        chainId: chainId,
-        calls: calls,
-        gasToken: 'MOCK_USD',
-        sponsorship: 'platform',   // Platform sponsors gas for donors
-    });
-
-    return {
-        quoteId:    result.quoteId    || result.id,
-        gasCostUsd: result.gasCostUsd || result.estimatedCost || '0.00',
-        expiresAt:  result.expiresAt  || (Date.now() + 300000), // 5 min default
-        raw:        result,
-    };
-}
-
-// ─── Phase 2: SETTLE ─────────────────────────────────────────────────────────
-/**
- * Locks Mock USD to cover the quoted gas cost.
- *
- * This is the "payment confirmation" step. Once settled, UGF guarantees
- * the gas will be paid even if ETH price fluctuates.
- *
- * @param {string} quoteId — Quote ID from Phase 1
- * @param {string} senderSignature — EIP-712 signature from user (or permit sig)
- * @returns {Promise<{settlementId: string, status: string}>}
- */
-async function ugfSettle(quoteId, senderSignature) {
-    ugfCurrentStatus = UGF_STATUS.SETTLING;
-
-    const result = await ugfRequest('/v1/settle', {
-        quoteId:   quoteId,
-        signature: senderSignature,
-        paymentMethod: 'MOCK_USD',
-    });
-
-    return {
-        settlementId: result.settlementId || result.id,
-        status:       result.status || 'settled',
-        raw:          result,
-    };
-}
-
-// ─── Phase 3: EXECUTE ────────────────────────────────────────────────────────
-/**
- * Submits the transaction to Base Sepolia via UGF's execution layer.
- *
- * UGF handles:
- *   - Gas payment from the settled Mock USD
- *   - Nonce management
- *   - Transaction submission to the target chain
- *   - Retry logic for dropped transactions
- *
- * @param {string} settlementId — Settlement ID from Phase 2
- * @returns {Promise<{executionId: string, txHash: string}>}
- */
-async function ugfExecute(settlementId) {
-    ugfCurrentStatus = UGF_STATUS.EXECUTING;
-
-    const result = await ugfRequest('/v1/execute', {
-        settlementId: settlementId,
-    });
-
-    return {
-        executionId: result.executionId || result.id,
-        txHash:      result.transactionHash || result.txHash,
-        status:      result.status || 'submitted',
-        raw:         result,
-    };
-}
-
-// ─── Phase 4: CONFIRM ────────────────────────────────────────────────────────
-/**
- * Polls UGF for transaction confirmation (on-chain finality).
- *
- * @param {string} executionId — Execution ID from Phase 3
- * @param {number} maxAttempts — Max polling attempts (default 30 × 3s = 90s)
- * @returns {Promise<{transactionHash: string, blockNumber: number, status: string}>}
- */
-async function ugfConfirm(executionId, maxAttempts = 30) {
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 3000)); // 3s interval
-
-        try {
-            const result = await ugfRequest('/v1/status', {
-                executionId: executionId,
-            });
-
-            if (result.status === 'confirmed' || result.status === 'success') {
-                ugfCurrentStatus = UGF_STATUS.CONFIRMED;
-                return {
-                    transactionHash: result.transactionHash || result.txHash,
-                    blockNumber:     result.blockNumber,
-                    status:          'confirmed',
-                    gasPaidUsd:      result.gasPaidUsd || '0.00',
-                    raw:             result,
-                };
-            }
-
-            if (result.status === 'failed' || result.status === 'reverted') {
-                ugfCurrentStatus = UGF_STATUS.FAILED;
-                throw new Error(`Transaction ${result.status}: ${result.reason || 'unknown error'}`);
-            }
-
-            // Still pending — continue polling
-        } catch (err) {
-            // Network errors during polling are non-fatal — keep trying
-            if (err.message?.includes('Transaction failed') || err.message?.includes('reverted')) {
-                throw err;
-            }
-            console.warn(`[UGF] Poll attempt ${i + 1}/${maxAttempts}:`, err.message);
-        }
-    }
-
-    ugfCurrentStatus = UGF_STATUS.FAILED;
-    throw new Error('UGF transaction timed out after 90s. Check the UGF dashboard.');
 }
 
 // ─── TX Pending Overlay — UGF Lifecycle ──────────────────────────────────────
@@ -284,7 +193,7 @@ function showUGFPhase(phase, data = {}) {
             break;
 
         case 'executing':
-            if (msg) msg.textContent = 'Submitting donation to Base Sepolia…';
+            if (msg) msg.textContent = 'Submitting transaction to Base Sepolia…';
             if (hint) hint.textContent = '⏱ Confirming on-chain (15-30 seconds)';
             if (data.hash) {
                 if (hashRow)  hashRow.dataset.state = 'txhash';
@@ -332,7 +241,7 @@ function hideUGFOverlay() {
         if (label)     label.textContent     = 'Quote';
         if (hashPlain) hashPlain.textContent  = '—';
         if (linkDisp)  linkDisp.textContent   = '—';
-        if (msg)       msg.textContent        = 'Preparing your gasless donation…';
+        if (msg)       msg.textContent        = 'Preparing your gasless transaction…';
         if (hint)      hint.textContent       = '⏱ This usually takes 15–30 seconds';
     }, 320);
 }
@@ -340,9 +249,9 @@ function hideUGFOverlay() {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Full UGF donation flow — replaces sendBiconomyDonation().
+ * Full UGF gasless transaction flow.
  *
- * 1. Requests user signature (permit or direct sign)
+ * 1. Authenticates with UGF
  * 2. Quotes gas cost in Mock USD
  * 3. Settles (locks) Mock USD for gas
  * 4. Executes the transaction on Base Sepolia
@@ -362,115 +271,161 @@ function hideUGFOverlay() {
  * @returns {Promise<{transactionHash: string}>}
  */
 async function sendUGFDonation({ signer, provider, chainId, to, data, onQuote, onSettle, onExecute }) {
-    ugfCurrentStatus = UGF_STATUS.IDLE;
-    const senderAddress = await signer.getAddress();
+    try {
+        ugfCurrentStatus = UGF_STATUS.IDLE;
 
-    let useFallback = false;
-    // Guard/Check: If API key is still the default/placeholder, go straight to fallback
-    if (!UGF_API_KEY || UGF_API_KEY === 'ugf_test_YOUR_KEY' || UGF_API_KEY.includes('your_key_here')) {
-        useFallback = true;
-    }
+        // Load the SDK (will use cached version if already loaded)
+        const sdk = await loadUGFSDK();
+        const client = await getUGFClient();
 
-    if (!useFallback) {
-        try {
-            console.log('[UGF] Attempting standard UGF gasless relay...');
-            
-            // ── Phase 1: QUOTE ───────────────────────────────────────────────────────
-            const quote = await ugfQuote({
-                from:    senderAddress,
-                to:      to,
-                data:    data,
-                chainId: chainId,
-            });
+        // Read SDK constants — handle different export patterns
+        const BASE_SEPOLIA_CHAIN_ID = sdk.BASE_SEPOLIA_CHAIN_ID || sdk.CHAIN_IDS?.BASE_SEPOLIA || '84532';
+        const TYI_USD_PAYMENT_COIN = sdk.TYI_USD_PAYMENT_COIN || sdk.TYI_MOCK_USD || sdk.PAYMENT_COINS?.TYI_USD || 'TYI_MOCK_USD';
 
-            if (typeof onQuote === 'function') onQuote(quote);
-
-            // ── Sign the UGF execution authorization ─────────────────────────────────
-            const authMessage = `CryptoAid UGF Authorization\n\nQuote: ${quote.quoteId}\nChain: ${chainId}\nGas: ${quote.gasCostUsd} Mock USD\n\nI authorize UGF to execute this gasless transaction.`;
-            const authSignature = await signer.signMessage(authMessage);
-
-            // ── Phase 2: SETTLE ──────────────────────────────────────────────────────
-            const settlement = await ugfSettle(quote.quoteId, authSignature);
-
-            if (typeof onSettle === 'function') onSettle();
-
-            // ── Phase 3: EXECUTE ─────────────────────────────────────────────────────
-            const execution = await ugfExecute(settlement.settlementId);
-
-            if (typeof onExecute === 'function') onExecute(execution.txHash);
-
-            // ── Phase 4: CONFIRM ─────────────────────────────────────────────────────
-            const receipt = await ugfConfirm(execution.executionId);
-
-            return {
-                transactionHash: receipt.transactionHash,
-                blockNumber:     receipt.blockNumber,
-                gasPaidUsd:      receipt.gasPaidUsd,
-            };
-        } catch (err) {
-            console.warn('[UGF] Standard UGF relay failed or unreachable, switching to Direct Wallet Fallback:', err);
-            useFallback = true;
-        }
-    }
-
-    if (useFallback) {
-        // ── Direct Wallet Fallback (Maintains beautiful 4-phase UGF UX) ───────────
-        if (typeof showToast === 'function') {
-            showToast('⚠️ UGF offline — executing directly via MetaMask (gas required)', 'info');
+        if (String(chainId) !== String(BASE_SEPOLIA_CHAIN_ID)) {
+            throw new Error(`UGF testnet supports Base Sepolia only (chain ${BASE_SEPOLIA_CHAIN_ID}). Current: ${chainId}`);
         }
 
-        // 1. QUOTE (Simulated gas quote)
+        if (Array.isArray(to) || Array.isArray(data)) {
+            throw new Error('UGF SDK supports a single transaction at a time.');
+        }
+
+        if (!provider || typeof provider.waitForTransaction !== 'function') {
+            throw new Error('Missing provider for confirmation.');
+        }
+
+        const senderAddress = await signer.getAddress();
+        await ensureUGFAuth(client, signer);
+
+        // ── Phase 1: QUOTE ────────────────────────────────────────────────────
         ugfCurrentStatus = UGF_STATUS.QUOTING;
-        const fakeQuote = {
-            quoteId: "ugf_q_" + Math.random().toString(36).substring(2, 10),
-            gasCostUsd: "0.15",
-            expiresAt: Date.now() + 300000
+        const txObject = {
+            from: senderAddress,
+            to: to,
+            data: data,
+            value: '0',
         };
-        if (typeof onQuote === 'function') onQuote(fakeQuote);
-        await new Promise(r => setTimeout(r, 1200));
 
-        // 2. SETTLE (Request auth signature)
-        ugfCurrentStatus = UGF_STATUS.SETTLING;
-        const authMessage = `CryptoAid UGF Fallback Authorization\n\nQuote: ${fakeQuote.quoteId}\nChain: ${chainId}\nGas: ${fakeQuote.gasCostUsd} Mock USD\n\nI authorize standard execution of this transaction.`;
-        await signer.signMessage(authMessage);
-        if (typeof onSettle === 'function') onSettle();
-        await new Promise(r => setTimeout(r, 800));
-
-        // 3. EXECUTE (Submit direct transactions)
-        ugfCurrentStatus = UGF_STATUS.EXECUTING;
-        let tx;
-        if (Array.isArray(to)) {
-            // Execute sequential transactions: Permit then Donate
-            for (let i = 0; i < to.length; i++) {
-                tx = await signer.sendTransaction({
-                    to: to[i],
-                    data: data[i]
-                });
-                // If it's permit, wait for confirmation before donating
-                if (i === 0) {
-                    await tx.wait();
-                }
-            }
+        let quote;
+        // Try different quote API patterns the SDK might expose
+        if (client.quote && typeof client.quote.get === 'function') {
+            quote = await client.quote.get({
+                payer_address: senderAddress,
+                tx_object: JSON.stringify(txObject),
+                payment_coin: TYI_USD_PAYMENT_COIN,
+            });
+        } else if (typeof client.getQuote === 'function') {
+            quote = await client.getQuote({
+                payerAddress: senderAddress,
+                txObject: txObject,
+                paymentCoin: TYI_USD_PAYMENT_COIN,
+            });
         } else {
-            tx = await signer.sendTransaction({
-                to: to,
-                data: data
+            throw new Error('[UGF] Quote API not found on client. Available methods: ' +
+                Object.getOwnPropertyNames(Object.getPrototypeOf(client)).join(', '));
+        }
+
+        if (typeof onQuote === 'function') {
+            const quoteId = quote.quote_id || quote.quoteId || quote.digest || quote.id || 'unknown';
+            onQuote({
+                quoteId: quoteId,
+                gasCostUsd: quote.settlement_amount || quote.settlementAmount || quote.cost || '0.00',
+                raw: quote,
             });
         }
 
-        if (typeof onExecute === 'function') onExecute(tx.hash);
+        // ── Phase 2: SETTLE (x402) ───────────────────────────────────────────
+        ugfCurrentStatus = UGF_STATUS.SETTLING;
 
-        // 4. CONFIRM (Wait for transaction mining receipt)
+        // Try different payment/settle API patterns
+        if (client.payment && client.payment.x402 && typeof client.payment.x402.execute === 'function') {
+            await client.payment.x402.execute({ quote, signer });
+        } else if (client.settle && typeof client.settle === 'function') {
+            await client.settle({ quote, signer });
+        } else if (typeof client.pay === 'function') {
+            await client.pay({ quote, signer });
+        } else if (client.payment && typeof client.payment.settle === 'function') {
+            await client.payment.settle({ quote, signer });
+        } else {
+            console.warn('[UGF] No explicit settle/pay method found. SDK may handle this in execute phase.');
+        }
+
+        if (typeof onSettle === 'function') onSettle();
+
+        // ── Phase 3: EXECUTE ─────────────────────────────────────────────────
+        ugfCurrentStatus = UGF_STATUS.EXECUTING;
+
+        let userTxHash;
+        const quoteDigest = quote.digest || quote.quote_id || quote.quoteId || quote.id;
+
+        // Try different execute API patterns
+        if (client.chains && client.chains.evm && typeof client.chains.evm.sponsorAndExecute === 'function') {
+            const result = await client.chains.evm.sponsorAndExecute(
+                quoteDigest,
+                signer,
+                async () => ({
+                    to: to,
+                    data: data,
+                    value: 0n,
+                })
+            );
+            userTxHash = result.userTxHash || result.txHash || result.hash || result.transactionHash;
+        } else if (typeof client.execute === 'function') {
+            const result = await client.execute({
+                quote,
+                signer,
+                txObject: { to, data, value: '0' },
+            });
+            userTxHash = result.userTxHash || result.txHash || result.hash || result.transactionHash;
+        } else if (client.evm && typeof client.evm.execute === 'function') {
+            const result = await client.evm.execute(quoteDigest, signer, { to, data, value: 0n });
+            userTxHash = result.userTxHash || result.txHash || result.hash || result.transactionHash;
+        } else {
+            throw new Error('[UGF] Execute API not found on client.');
+        }
+
+        if (!userTxHash) {
+            throw new Error('[UGF] Execute succeeded but no transaction hash was returned.');
+        }
+
+        if (typeof onExecute === 'function') onExecute(userTxHash);
+
+        // ── Phase 4: CONFIRM ─────────────────────────────────────────────────
+        const receipt = await provider.waitForTransaction(userTxHash);
+        if (!receipt) {
+            throw new Error('Transaction confirmation timed out.');
+        }
         ugfCurrentStatus = UGF_STATUS.CONFIRMED;
-        const receipt = await tx.wait();
-
         return {
-            transactionHash: receipt.hash || receipt.transactionHash,
-            blockNumber:     receipt.blockNumber,
-            gasPaidUsd:      "0.15"
+            transactionHash: userTxHash,
+            blockNumber: receipt.blockNumber,
         };
+    } catch (err) {
+        ugfCurrentStatus = UGF_STATUS.FAILED;
+
+        // Enhance error messages for common issues
+        if (err.message?.includes('Could not load UGF SDK')) {
+            err.userMessage = 'UGF SDK is currently unavailable. Please check your internet connection and try again.';
+        } else if (err.message?.includes('UGFClient class not found')) {
+            err.userMessage = 'UGF SDK version incompatibility. Please report this to the developers.';
+        } else if (err.message?.includes('Quote API not found')) {
+            err.userMessage = 'UGF service is not responding correctly. Please try again in a moment.';
+        }
+
+        throw err;
     }
 }
+
+// ─── Pre-load SDK on page load (non-blocking) ────────────────────────────────
+// This kicks off SDK loading early so it's ready when the user donates
+(async () => {
+    try {
+        await loadUGFSDK();
+        console.log('[UGF] SDK pre-loaded successfully ✓');
+    } catch (err) {
+        console.warn('[UGF] SDK pre-load failed (will retry on donation):', err.message);
+    }
+})();
 
 // ─── Expose to global scope for cross-file access ────────────────────────────
 window.sendUGFDonation = sendUGFDonation;

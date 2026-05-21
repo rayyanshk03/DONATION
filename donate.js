@@ -4,6 +4,7 @@ const CONTRACT_ADDRESS = (typeof window !== 'undefined' && window.ENV && window.
 const CONTRACT_ABI = [
     // ── Write ────────────────────────────────────────────────────────────────
     'function donate(uint256 causeId, uint256 amount)',
+    'function donateWithPermit(uint256 causeId, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
     // ── Read ─────────────────────────────────────────────────────────────────
     'function getCauses(uint256[] causeIds) view returns (address[] wallets, uint256[] donated, uint256[] numDonors)',
     'function getAnalytics() view returns (uint256 totalDonations, uint256 totalDonationCount, uint256 causeCount)',
@@ -27,7 +28,7 @@ const ERC20_ABI = [
 ];
 
 // UGC token decimals — updated at runtime via token.decimals()
-let UGC_DECIMALS = 18n;
+let UGC_DECIMALS = 18;
 
 // EXPLORER_BASE is defined in ugf.js (loaded before this file)
 
@@ -153,7 +154,7 @@ function showTxSuccess(amountUgc, causeName, txHash) {
     }
 
     // Re-fetch UGC balance so the navbar badge updates immediately
-    syncUgcData().catch(console.warn);
+    syncUgcData(true).catch(console.warn);
 }
 
 // ─── Reset form ───────────────────────────────────────────────────────────────
@@ -167,7 +168,7 @@ async function resetDonateForm() {
     clearError();
     // Re-fetch UGC balance AND allowance so the button correctly shows
     // "Approve UGC" vs "Donate Now" for the next donation attempt
-    await syncUgcData();
+    await syncUgcData(true);
     refreshSubmitBtn();
     document.getElementById('donateSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -188,29 +189,15 @@ let ugcAllowanceWei = 0n;  // BigInt — raw allowance(user, DonationManager)
  */
 async function fetchUgcPrice() {
     const indicator = document.getElementById('ethPriceIndicator');
-    try {
-        // ── Option A: your backend ──────────────────────────────────────────
-        // const resp = await fetch('/api/ugc-price', { signal: AbortSignal.timeout(5000) });
-
-        // ── Option B: CoinGecko (swap 'ugc-coin' for the real CoinGecko ID) ─
-        const resp = await fetch(
-            'https://api.coingecko.com/api/v3/simple/price?ids=ugc-coin&vs_currencies=usd',
-            { signal: AbortSignal.timeout(6000) }
-        );
-        if (!resp.ok) throw new Error('Bad response');
-        const data = await resp.json();
-        ugcUsdPrice = data['ugc-coin']?.usd ?? null;
-
-        if (ugcUsdPrice && indicator) {
-            indicator.textContent = `1 Mock USD = $1.00`;
-            indicator.classList.add('price-loaded');
-        }
-        // Refresh USD display if the user already typed an amount
-        const amount = parseFloat(document.getElementById('donateAmount')?.value);
-        if (amount > 0) updateUsdDisplay(amount);
-    } catch {
-        if (indicator) indicator.textContent = 'Price unavailable';
+    // Mock USD is a testnet stablecoin pegged at $1.00 — no oracle needed
+    ugcUsdPrice = 1.0;
+    if (indicator) {
+        indicator.textContent = '1 Mock USD = $1.00';
+        indicator.classList.add('price-loaded');
     }
+    // Refresh USD display if the user already typed an amount
+    const amount = parseFloat(document.getElementById('donateAmount')?.value);
+    if (amount > 0) updateUsdDisplay(amount);
 }
 
 // ─── Live USD equivalent ──────────────────────────────────────────────────────
@@ -359,7 +346,7 @@ function updateFormActiveState() {
 
     if (msgEl) {
         if (isWrongNetwork) {
-            const chainName = window.getChainName ? window.getChainName(window.TARGET_CHAIN_ID) : 'Sepolia';
+            const chainName = window.getChainName ? window.getChainName(window.TARGET_CHAIN_ID) : 'Base Sepolia';
             msgEl.innerHTML = `Please switch to ${chainName} to use USD donations.<br><button class="switch-network-btn-overlay" id="overlaySwitchNetworkBtn" onclick="wallet_switchEthereumChain()">Switch Network</button>`;
         } else {
             msgEl.textContent = !isConnected && !hasCause
@@ -380,9 +367,9 @@ function updateFormActiveState() {
  * (set by fetchUgcData in wallet.js) into local module state.
  * Also tries to read the token decimals once.
  */
-async function syncUgcData() {
+async function syncUgcData(forceRefresh = false) {
     // Force trigger on-chain fetch to get absolute newest values
-    if (window.refreshUgcBalance) {
+    if (forceRefresh && window.refreshUgcBalance) {
         await window.refreshUgcBalance();
     }
     const ctx = WalletContext.getState();
@@ -400,6 +387,9 @@ async function syncUgcData() {
     if (ctx.ugcBalance !== null) {
         ugcBalanceWei   = ctx.ugcBalance   ?? 0n;
         ugcAllowanceWei = ctx.ugcAllowance ?? 0n;
+        if (ctx.ugcDecimals !== undefined && ctx.ugcDecimals !== null) {
+            UGC_DECIMALS = Number(ctx.ugcDecimals);
+        }
     } else {
         // Fallback: read directly (first load / token not yet fetched)
         try {
@@ -415,7 +405,7 @@ async function syncUgcData() {
             ]);
             ugcBalanceWei   = bal;
             ugcAllowanceWei = allow;
-            UGC_DECIMALS    = dec;
+            UGC_DECIMALS    = Number(dec);
             WalletContext.setState({ ugcBalance: bal, ugcAllowance: allow });
         } catch {
             ugcBalanceWei   = 0n;
@@ -461,13 +451,13 @@ function onCauseSelected(cause) {
  *    If the token doesn't support it → fall to Phase 2.
  *    If user rejects the sign → abort entirely.
  *
- *  Phase 2 — Standard approve() tx (fallback)
- *    On-chain tx. User needs a tiny ETH for gas.
+ *  Phase 2 — Gasless approve() via UGF (fallback)
+ *    On-chain tx sponsored by UGF. User never needs ETH.
  *    Fires only when Phase 1 returns null.
  *
- *  Phase 3 — donate / donateWithPermit
- *    Calls the correct DonationManager entry-point depending on which
- *    approval path succeeded. transferFrom moves UGC to the cause wallet.
+ *  Phase 3 — donate
+ *    Calls donate() after approval is established. transferFrom moves
+ *    Mock USD to the cause wallet.
  */
 async function onDonateSubmit() {
     const { isConnected, signer, chainId } = WalletContext.getState();
@@ -511,31 +501,109 @@ async function onDonateSubmit() {
     }
 
     let permitSig = null;
+    const { provider } = WalletContext.getState();
 
     if (needsApproval) {
         // ── Phase 1: EIP-2612 Permit (Gasless Signature) ──────────────────────
         btn.disabled  = true;
-        btn.innerHTML = `${SPINNER} Requesting gasless allowance signature…`;
+        btn.innerHTML = `${SPINNER} Requesting gasless approval signature…`;
         try {
             permitSig = await tryPermitSignature(ugcToken, signer.address, amountWei, chainId);
         } catch (err) {
             console.warn('[Permit] Error in permit signature path:', err);
         }
 
-        // ── Phase 2: Fallback Standard Approve Transaction ────────────────────
-        if (!permitSig) {
-            btn.innerHTML = `${SPINNER} Sending standard approve transaction (gas required)…`;
+        if (permitSig) {
+            // ── Phase 2a: Gasless permit via UGF (no ETH required) ─────────────
+            btn.innerHTML = `${SPINNER} Submitting gasless permit…`;
+            const { deadline, v, r, s } = permitSig;
+            const erc20Iface = new ethers.Interface(ERC20_ABI);
+            const permitCalldata = erc20Iface.encodeFunctionData('permit', [
+                signer.address,
+                CONTRACT_ADDRESS,
+                amountWei,
+                deadline,
+                v,
+                r,
+                s
+            ]);
+
             try {
-                const tx = await ugcToken.approve(CONTRACT_ADDRESS, amountWei);
-                showToast('Approval transaction submitted! Please wait for confirmation.', 'info');
-                await tx.wait();
-                ugcAllowanceWei = amountWei; // Update local state allowance
-                showToast('Allowance approved successfully!', 'success');
+                await sendUGFDonation({
+                    signer,
+                    provider,
+                    chainId,
+                    to: UGC_TOKEN_ADDRESS,
+                    data: permitCalldata,
+                    onQuote(quote) {
+                        showUGFPhase('quoting', { quoteId: quote.quoteId });
+                    },
+                    onSettle() {
+                        showUGFPhase('settling');
+                    },
+                    onExecute(txHash) {
+                        showUGFPhase('executing', { hash: txHash });
+                    },
+                });
+
+                showUGFPhase('confirmed');
+                await new Promise(r => setTimeout(r, 600));
+                hideTxPending();
+                await syncUgcData(true);
+                refreshSubmitBtn();
+                showToast('Mock USD permit approved successfully!', 'success');
+            } catch (permitErr) {
+                console.error('[Permit] Gasless permit failed:', permitErr);
+                hideTxPending();
+                restoreBtn();
+                if (isRejection(permitErr)) {
+                    showToast('Approval cancelled. Nothing was sent.', 'error');
+                } else {
+                    const msg = permitErr.reason ?? permitErr.shortMessage ?? permitErr.message ?? 'Unknown error';
+                    showToast(`Approval failed: ${msg}`, 'error');
+                }
+                return;
+            }
+        } else {
+            // ── Phase 2b: Gasless approve via UGF (no ETH required) ────────────
+            btn.innerHTML = `${SPINNER} Submitting gasless approval…`;
+            showToast('Permit unavailable — submitting a gasless approval.', 'info');
+            const erc20Iface = new ethers.Interface(ERC20_ABI);
+            const approveCalldata = erc20Iface.encodeFunctionData('approve', [
+                CONTRACT_ADDRESS,
+                amountWei
+            ]);
+
+            try {
+                await sendUGFDonation({
+                    signer,
+                    provider,
+                    chainId,
+                    to: UGC_TOKEN_ADDRESS,
+                    data: approveCalldata,
+                    onQuote(quote) {
+                        showUGFPhase('quoting', { quoteId: quote.quoteId });
+                    },
+                    onSettle() {
+                        showUGFPhase('settling');
+                    },
+                    onExecute(txHash) {
+                        showUGFPhase('executing', { hash: txHash });
+                    },
+                });
+
+                showUGFPhase('confirmed');
+                await new Promise(r => setTimeout(r, 600));
+                hideTxPending();
+                await syncUgcData(true);
+                refreshSubmitBtn();
+                showToast('Mock USD approved successfully!', 'success');
             } catch (approveErr) {
-                console.error('[Approve] Fallback failed:', approveErr);
+                console.error('[Approve] Gasless approval failed:', approveErr);
+                hideTxPending();
                 restoreBtn();
                 if (isRejection(approveErr)) {
-                    showToast('Approval transaction cancelled.', 'error');
+                    showToast('Approval cancelled. Nothing was sent.', 'error');
                 } else {
                     const msg = approveErr.reason ?? approveErr.shortMessage ?? approveErr.message ?? 'Unknown error';
                     showToast(`Approval failed: ${msg}`, 'error');
@@ -549,37 +617,13 @@ async function onDonateSubmit() {
     btn.disabled  = true;
     btn.innerHTML = `${SPINNER} Sign the donation in your wallet…`;
 
-    // Encode the correct DonationVault calldata depending on approval path
+    // Encode the donation call (approval already handled above)
     const donationIface = new ethers.Interface(CONTRACT_ABI);
-    let to, calldata;
-    if (permitSig) {
-        const { deadline, v, r, s } = permitSig;
-        const erc20Iface = new ethers.Interface(ERC20_ABI);
-        const permitCalldata = erc20Iface.encodeFunctionData('permit', [
-            signer.address,
-            CONTRACT_ADDRESS,
-            amountWei,
-            deadline,
-            v,
-            r,
-            s
-        ]);
-        const donateCalldata = donationIface.encodeFunctionData('donate', [
-            cause.id,
-            amountWei
-        ]);
-
-        to = [UGC_TOKEN_ADDRESS, CONTRACT_ADDRESS];
-        calldata = [permitCalldata, donateCalldata];
-    } else {
-        to = CONTRACT_ADDRESS;
-        calldata = donationIface.encodeFunctionData('donate', [
-            cause.id,
-            amountWei
-        ]);
-    }
-
-    const { provider } = WalletContext.getState();
+    const to = CONTRACT_ADDRESS;
+    const calldata = donationIface.encodeFunctionData('donate', [
+        cause.id,
+        amountWei
+    ]);
 
     try {
         // Submit through the UGF gasless lifecycle: Quote → Settle → Execute → Confirm
@@ -614,7 +658,7 @@ async function onDonateSubmit() {
         await new Promise(r => setTimeout(r, 900));
 
         // Re-sync balance and allowances to prevent any stale UI state
-        await syncUgcData();
+        await syncUgcData(true);
         refreshSubmitBtn();
         if (typeof loadOnChainStats === 'function') loadOnChainStats();
 
@@ -628,11 +672,8 @@ async function onDonateSubmit() {
 
         if (isRejection(err)) {
             showToast('Donation cancelled. Nothing was sent.', 'error');
-        } else if (err.message?.includes('UGF not configured')) {
-            showToast('⚠️ UGF API key not set — check your .env file', 'error');
-            console.error(err.message);
         } else {
-            const msg = err.reason ?? err.shortMessage ?? err.message ?? 'Unknown error';
+            const msg = err.userMessage ?? err.reason ?? err.shortMessage ?? err.message ?? 'Unknown error';
             showToast(`Donation error: ${msg}`, 'error');
         }
     }
@@ -688,7 +729,7 @@ function initDonateForm() {
 
 WalletContext.subscribe(async (ctx) => {
     updateFormActiveState();
-    await syncUgcData();
+    await syncUgcData(false);
     refreshSubmitBtn();
     const amount = parseFloat(document.getElementById('donateAmount')?.value);
     if (amount > 0) validateAmount(amount);
