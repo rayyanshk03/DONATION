@@ -10,6 +10,8 @@ import donationsRoutes from "./routes/donations.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import analyticsRoutes from "./routes/analytics.js";
 import healthRoutes from "./routes/health.js";
+import faucetRoutes from "./routes/faucet.js";
+import ugfRoutes from "./routes/ugf.js";
 
 const app = express();
 
@@ -35,6 +37,8 @@ app.use("/api", donationsRoutes);
 app.use("/api", leaderboardRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api", healthRoutes);
+app.use("/api", faucetRoutes);
+app.use("/api", ugfRoutes);
 
 const server = http.createServer(app);
 initWebsocket(server);

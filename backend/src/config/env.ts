@@ -16,5 +16,7 @@ export const env = {
   rpcUrl: required("RPC_URL", process.env.RPC_URL),
   rpcWsUrl: process.env.RPC_WS_URL,
   vaultAddress: required("VAULT_ADDRESS", process.env.VAULT_ADDRESS),
+  ugcTokenAddress: required("UGC_TOKEN_ADDRESS", process.env.UGC_TOKEN_ADDRESS),
+  privateKey: required("PRIVATE_KEY", process.env.PRIVATE_KEY),
   corsOrigin: process.env.CORS_ORIGIN,
 };
