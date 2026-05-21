@@ -3,9 +3,9 @@ window.ENV = {
   VITE_UGC_TOKEN_ADDRESS: "0x27DC1C167AeF232bb1e21073304B526726a8727e",
   VITE_DONATION_CONTRACT_ADDRESS: "0xB6Cfb2BCF4bb8eF6A9aBa53405F23eC872703b5c",
   VITE_TARGET_CHAIN_ID: "84532",
-  VITE_UGF_API_KEY: "ugf_live_key_for_local_testing",
-  VITE_UGF_ENDPOINT: "http://localhost:4000/api",
-  VITE_UGC_FAUCET_URL: "https://faucet.ugf.network",
+  VITE_UGF_API_KEY: "ugf_test_optional_legacy",
+  VITE_UGF_ENDPOINT: "https://gateway.universalgasframework.com",
+  VITE_UGC_FAUCET_URL: "https://universalgasframework.com/faucets",
   VITE_BACKEND_URL: "http://localhost:4000",
   VITE_WS_URL: "ws://localhost:4000/ws",
 };
