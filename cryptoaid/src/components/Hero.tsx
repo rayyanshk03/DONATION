@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { ArrowRight, Zap, ShieldCheck, Coins } from "lucide-react";
-import EarthGlobe from "./EarthGlobe";
+import SplineGlobe from "./SplineGlobe";
 
 interface HeroProps {
   totalDonated: number;
@@ -186,7 +186,7 @@ export default function Hero({
             {/* Outer ring glow */}
             <div className="relative w-full h-full">
               <div className="absolute inset-[6%] rounded-full bg-blue-500/[0.06] blur-[40px]" />
-              <EarthGlobe />
+              <SplineGlobe />
             </div>
           </motion.div>
 
