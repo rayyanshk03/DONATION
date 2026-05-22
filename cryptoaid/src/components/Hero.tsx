@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { ArrowRight, Zap, ShieldCheck, Coins } from "lucide-react";
-import SplineGlobe from "./SplineGlobe";
+import EarthGlobe from "./EarthGlobe";
 
 interface HeroProps {
   totalDonated: number;
@@ -13,9 +13,9 @@ interface HeroProps {
 }
 
 const FEATURES = [
-  { icon: Zap,          label: "Zero gas fees",      color: "text-emerald-400" },
-  { icon: Coins,        label: "No ETH required",    color: "text-blue-400"    },
-  { icon: ShieldCheck,  label: "Permit-based trust", color: "text-violet-400"  },
+  { icon: Zap,          label: "Gas paid in Mock USD", color: "text-emerald-400" },
+  { icon: Coins,        label: "No ETH required",      color: "text-blue-400"    },
+  { icon: ShieldCheck,  label: "Permit-based trust",   color: "text-violet-400"  },
 ];
 
 export default function Hero({
@@ -67,7 +67,7 @@ export default function Hero({
               className="text-[42px] sm:text-[52px] lg:text-[58px] font-bold leading-[1.08] tracking-[-0.03em] text-white mb-5"
             >
               Give globally.<br />
-              <span className="text-slate-400">Pay zero gas.</span>
+              <span className="text-slate-400">Pay gas in USD.</span>
             </motion.h1>
 
             {/* Subheading */}
@@ -77,8 +77,8 @@ export default function Hero({
               transition={{ duration: 0.6, delay: 0.14 }}
               className="text-[15px] leading-[1.75] text-slate-500 mb-8 max-w-[460px]"
             >
-              The first frictionless gasless donation platform on Base. No ETH needed,
-              no bridges, no complexity — just sign and give.
+              The first frictionless ETH-free donation platform on Base Sepolia. Pay gas using Mock USD (UGC) 
+              via UGF — no native ETH required, no complex bridges.
             </motion.p>
 
             {/* Feature list */}
@@ -162,7 +162,7 @@ export default function Hero({
               className="mt-12 pt-8 border-t border-white/[0.06] grid grid-cols-3 gap-6"
             >
               {[
-                { value: `$${totalDonated.toLocaleString()}`, label: "Total donated",  sub: "$0 gas" },
+                { value: `$${totalDonated.toLocaleString()}`, label: "Total donated",  sub: "UGF sponsored" },
                 { value: totalDonors.toString(),               label: "Unique donors",  sub: "On Base Sepolia" },
                 { value: `$${avgGift.toFixed(1)}`,             label: "Avg. gift size", sub: "Direct to cause" },
               ].map(({ value, label, sub }) => (
@@ -186,7 +186,7 @@ export default function Hero({
             {/* Outer ring glow */}
             <div className="relative w-full h-full">
               <div className="absolute inset-[6%] rounded-full bg-blue-500/[0.06] blur-[40px]" />
-              <SplineGlobe />
+              <EarthGlobe />
             </div>
           </motion.div>
 

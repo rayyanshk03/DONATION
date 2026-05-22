@@ -270,10 +270,10 @@ export default function Navbar({
                   <span className="text-slate-500">UGC</span>
                 </div>
 
-                {/* Gasless badge */}
+                {/* ETH-Free badge */}
                 <div className="hidden sm:flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] px-2.5 py-[6px] text-[11px] font-semibold text-emerald-400">
                   <Zap className="h-3 w-3" />
-                  <span>Gasless</span>
+                  <span>ETH-Free</span>
                 </div>
 
                 {/* Address dropdown trigger */}

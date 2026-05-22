@@ -498,7 +498,7 @@ export default function CreatorDashboard({
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-white tracking-tight">Creator Portal</h3>
             <p className="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto font-light">
-              Connect your Web3 wallet to manage your gasless donation campaigns, register new causes, and audit your transaction histories.
+              Connect your Web3 wallet to manage your ETH-free donation campaigns, register new causes, and audit your transaction histories.
             </p>
           </div>
           <button
@@ -581,7 +581,7 @@ export default function CreatorDashboard({
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Gas Sponsorship</p>
                 <p className="text-sky-400 font-semibold flex items-center gap-1">
                   <Zap className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-                  <span>100% Free (Subsidized)</span>
+                  <span>ETH-Free (MUSD Paid)</span>
                 </p>
               </div>
               <div className="space-y-1 border-l border-white/[0.06] pl-4">
@@ -635,9 +635,9 @@ export default function CreatorDashboard({
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600" />
 
               <div>
-                <h3 className="text-lg font-bold text-white">Create a New Gasless Campaign</h3>
+                <h3 className="text-lg font-bold text-white">Create an ETH-Free Campaign</h3>
                 <p className="text-xs text-slate-400 font-light mt-1">
-                  Deploy a gasless smart contract registration. Donors fund this campaign without executing gas transactions directly.
+                  Deploy an ETH-free smart contract registration. Donors contribute to this campaign without needing native ETH in their wallets.
                 </p>
               </div>
 
@@ -788,7 +788,7 @@ export default function CreatorDashboard({
                   <div className="rounded-lg border border-white/[0.05] bg-white/[0.01] p-4 text-[11px] text-slate-400 flex items-start gap-2.5 leading-relaxed">
                     <Info className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-semibold text-white">Gasless Sponsorship Notice:</span> Smart contract operations incur transaction fees. Under our model, UGF sponsorships pay all deployment gas on Base Sepolia. You do not need to sign any transaction in your wallet; the relayer handles execution.
+                      <span className="font-semibold text-white">ETH-Free Gas Settlement Notice:</span> Smart contract operations incur transaction fees. Under our model, UGF processes and sponsors deployment gas on Base Sepolia using Mock USD. You do not need to sign any transaction in your wallet; the relayer handles execution.
                     </div>
                   </div>
 
@@ -1036,7 +1036,7 @@ export default function CreatorDashboard({
                   <span className="text-3xl font-black font-mono text-white">{totalDonorsCount}</span>
                 </div>
                 <p className="text-[10.5px] text-slate-400 font-light mt-4 border-t border-white/[0.04] pt-2">
-                  Gasless permit signatures recorded
+                  ETH-free permit signatures recorded
                 </p>
               </div>
             </div>
@@ -1051,10 +1051,10 @@ export default function CreatorDashboard({
                       Getting Started
                     </span>
                     <h3 className="text-2xl font-bold text-white tracking-tight leading-tight">
-                      No gasless fundraising campaigns found under this address.
+                      No ETH-free fundraising campaigns found under this address.
                     </h3>
                     <p className="text-slate-400 text-sm leading-relaxed font-light">
-                      Deploy your first campaign using our console. Registered campaigns are added on-chain on Base Sepolia, enabling donors to execute gasless payments funded by the UGF relayer network.
+                      Deploy your first campaign using our console. Registered campaigns are added on-chain on Base Sepolia, enabling donors to execute ETH-free payments settled in Mock USD by the UGF relayer network.
                     </p>
                   </div>
 
@@ -1278,7 +1278,7 @@ export default function CreatorDashboard({
                           {selectedCampaign.currentAmount === 0 && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#05050a]/60 backdrop-blur-[1px] rounded-xl z-10 text-center space-y-1 select-none pointer-events-none">
                               <p className="text-[11px] font-bold text-slate-400 font-mono">NO TRAJECTORY DATA</p>
-                              <p className="text-[9.5px] text-slate-500 font-light font-mono">Awaiting first gasless donation payload</p>
+                              <p className="text-[9.5px] text-slate-500 font-light font-mono">Awaiting first ETH-free donation payload</p>
                             </div>
                           )}
                           <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full overflow-visible">
@@ -1410,7 +1410,7 @@ export default function CreatorDashboard({
                           <div className="space-y-2">
                             <h3 className="text-xl font-bold text-white tracking-tight">Ready to start fundraising!</h3>
                             <p className="text-slate-400 text-sm leading-relaxed max-w-md font-light">
-                              Your gasless donation campaign is active on Base Sepolia. Share your campaign with your community to start receiving donations.
+                              Your ETH-free donation campaign is active on Base Sepolia. Share your campaign with your community to start receiving donations.
                             </p>
                           </div>
 
@@ -1452,10 +1452,10 @@ export default function CreatorDashboard({
                             <div className="glass-panel rounded-xl border border-white/[0.04] bg-[#05050a]/40 p-4 space-y-2">
                               <div className="flex items-center gap-2">
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pink-500/10 border border-pink-500/20 text-[10px] font-bold text-pink-400 font-mono">2</span>
-                                <h4 className="text-xs font-bold text-white">Zero Gas Fees</h4>
+                                <h4 className="text-xs font-bold text-white">ETH-Free Payments</h4>
                               </div>
                               <p className="text-[11px] text-slate-400 font-light leading-relaxed">
-                                Donors pay absolutely zero network gas fees. UGF automatically sponsors the transactions on Base Sepolia.
+                                Donors need 0 native ETH to contribute. Gas fees are quoted in Mock USD (UGC) and settled directly from the donation amount via UGF relayer sponsorship.
                               </p>
                             </div>
 

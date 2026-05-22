@@ -319,7 +319,7 @@ export default function App() {
     }
   };
 
-  // Gasless Token Claims sponsored by UGF
+  // ETH-Free Token Claims sponsored by UGF
   const handleClaimFaucet = async () => {
     if (!signer || !provider || !walletAddress) return;
     setIsFauceting(true);
@@ -350,8 +350,8 @@ export default function App() {
       // Refresh balance
       await fetchWalletData(provider, walletAddress);
     } catch (err: any) {
-      console.error("[Faucet] Gasless claim failed:", err);
-      setFaucetError(err.userMessage || err.message || "Gasless claim failed.");
+      console.error("[Faucet] ETH-Free claim failed:", err);
+      setFaucetError(err.userMessage || err.message || "ETH-Free claim failed.");
       setIsFauceting(false);
       setFaucetStatus(null);
     }
@@ -440,7 +440,7 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <div className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
                 <p className="text-[13px] text-slate-400">
-                  Your balance is <span className="text-white font-medium">${walletBalance.toFixed(2)} UGC</span> — claim testnet tokens to donate gaslessly.
+                  Your balance is <span className="text-white font-medium">${walletBalance.toFixed(2)} UGC</span> — claim testnet tokens to donate ETH-Free (gas paid in Mock USD).
                 </p>
               </div>
               <button
@@ -472,16 +472,16 @@ export default function App() {
                     className="absolute inset-0 rounded-full border-2 border-t-yellow-500 border-r-amber-500 border-b-emerald-500 border-l-transparent"
                   />
                   {faucetStatus === "quoting" ? (
-                    <KeyRound className="h-7 w-7 text-yellow-400 animate-float" />
+                     <KeyRound className="h-7 w-7 text-yellow-400 animate-float" />
                   ) : (
                     <Zap className="h-7 w-7 text-emerald-400 fill-emerald-400/20 animate-neon-pulse" />
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-lg font-bold text-white">Gasless Faucet Claim</h4>
+                  <h4 className="text-lg font-bold text-white">ETH-Free Faucet Claim</h4>
                   <p className="text-xs text-slate-400 leading-relaxed font-light">
-                    Sponsoring faucet transaction variables through UGF Relayers...
+                    Processing faucet claim through UGF Relayers with UGC Gas...
                   </p>
                 </div>
 
@@ -618,7 +618,7 @@ export default function App() {
               </div>
               <span className="text-[13px] font-semibold text-white">CryptoAid</span>
               <span className="text-slate-700">·</span>
-              <span className="text-[12px] text-slate-600">Gasless donations on Base</span>
+              <span className="text-[12px] text-slate-600">ETH-Free donations on Base (UGC Gas)</span>
             </div>
             <nav className="flex items-center gap-6 text-[12px] text-slate-500">
               <a href="#hero-section" className="hover:text-slate-300 transition-colors">Home</a>

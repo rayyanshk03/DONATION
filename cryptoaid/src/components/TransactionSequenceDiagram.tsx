@@ -96,8 +96,8 @@ const HAPPY_PATH_STEPS: Step[] = [
     title: "Faucet Claim Request",
     sender: 0,
     receiver: 2,
-    label: "Click 'Claim 1,000 MUSD Gaslessly'",
-    description: "The user clicks the claim button to request test Mock USD tokens without paying gas fees.",
+    label: "Click 'Claim 1,000 MUSD (ETH-Free)'",
+    description: "The user clicks the claim button to request test Mock USD tokens without needing native ETH for gas.",
     payloadType: "json",
     fileName: "payload.json",
     payload: JSON.stringify({ action: "CLAIM_FAUCET", token: "TYI_MOCK_USD", recipient: "0x742d35Cc..." }, null, 2),
@@ -219,7 +219,7 @@ function mint(address to, uint256 amount) external onlySponsor {
     sender: 0,
     receiver: 2,
     label: "Click 'Donate $50'",
-    description: "The user initiates a $50 donation to a specific cause, selecting the gasless payment method.",
+    description: "The user initiates a $50 donation to a specific cause, selecting the ETH-free UGF payment method.",
     payloadType: "json",
     fileName: "payload.json",
     payload: JSON.stringify({ action: "DONATE", amount: "50.00 MUSD", causeId: 3 }, null, 2),
@@ -232,7 +232,7 @@ function mint(address to, uint256 amount) external onlySponsor {
     sender: 2,
     receiver: 1,
     label: "Request EIP-2612 permit signature",
-    description: "The frontend requests an EIP-712 structured data signature to approve token spending gaslessly.",
+    description: "The frontend requests an EIP-712 structured data signature to approve token spending via an ETH-free UGF Permit.",
     payloadType: "json",
     fileName: "payload.json",
     payload: JSON.stringify({
@@ -322,7 +322,7 @@ function mint(address to, uint256 amount) external onlySponsor {
     sender: 6,
     receiver: 5,
     label: "Call EIP-2612 permit(...) to approve spending",
-    description: "The DonationVault contract calls the Mock USD contract's permit method to authorize the allowance gaslessly.",
+    description: "The DonationVault contract calls the Mock USD contract's permit method to authorize the allowance via EIP-2612 permit.",
     payloadType: "solidity",
     fileName: "DonationVault.sol",
     payload: `// DonationVault.sol
@@ -334,7 +334,7 @@ function donateWithPermit(
     bytes32 r, 
     bytes32 s
 ) external onlyRelayer {
-    // Approve spending gaslessly via EIP-2612 permit
+    // Approve spending via EIP-2612 permit
     IERC20Permit(token).permit(msg.sender, address(this), amount, deadline, v, r, s);
     ...
 }`,
@@ -698,7 +698,7 @@ const RELAYER_OUT_STEPS: Step[] = [
     sender: 2,
     receiver: 0,
     label: "Show service unavailable notice",
-    description: "The frontend notifies the user that the free gasless service is temporarily unavailable and they should try again later.",
+    description: "The frontend notifies the user that the ETH-free UGF relayer is temporarily unavailable and they should try again later.",
     payloadType: "json",
     fileName: "payload.json",
     payload: JSON.stringify({ display: "modal_error", title: "Sponsorship Depleted", body: "The UGF gas sponsorship wallet is temporarily empty. Please try again in a few minutes." }, null, 2),
@@ -708,7 +708,7 @@ const RELAYER_OUT_STEPS: Step[] = [
 ];
 
 const SCENARIOS: Scenario[] = [
-  { id: "happy", name: "Success Flow", desc: "Gasless faucet mint & $50 donation path", steps: HAPPY_PATH_STEPS },
+  { id: "happy", name: "Success Flow", desc: "ETH-Free faucet mint & $50 donation path", steps: HAPPY_PATH_STEPS },
   { id: "invalid_sig", name: "Invalid Signature", desc: "Contract EIP-2612 permit validation fails", steps: INVALID_SIG_STEPS },
   { id: "rejected_sig", name: "User Rejects Signature", desc: "User cancels signature approval in wallet", steps: REJECTED_SIG_STEPS },
   { id: "insufficient_usd", name: "Insufficient MUSD", desc: "User tries to donate without faucet tokens", steps: INSUFFICIENT_USD_STEPS },

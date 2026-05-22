@@ -181,13 +181,13 @@ export default function ActivityLeaderboard({ donations, leaders, onDonorClick }
 
                       <div className="text-right shrink-0 ml-3">
                         <p className="text-[13px] font-bold font-mono text-white">${tx.amount.toLocaleString()}</p>
-                        {/* High-fidelity gasless relayer badge */}
+                        {/* High-fidelity UGC gas relayer badge */}
                         <div className="flex items-center gap-0.5 justify-end mt-1">
-                          <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-emerald-500/[0.06] text-emerald-400 border border-emerald-500/15 text-[8px] font-bold font-mono uppercase tracking-wider select-none">
+                          <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-emerald-500/[0.06] text-emerald-400 border border-emerald-500/15 text-[8px] font-bold font-mono uppercase tracking-wider select-none" title="Gas fee settled using Mock USD (UGC) via UGF relayer — 0 native ETH required.">
                             <svg className="h-2 w-2 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                               <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
-                            Gasless
+                            UGC Gas
                           </span>
                         </div>
                       </div>

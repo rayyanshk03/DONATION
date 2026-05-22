@@ -144,54 +144,35 @@ export async function sendUGFDonation({
   onSettle,
   onExecute,
 }: UgfTxOptions): Promise<{ transactionHash: string; blockNumber: number }> {
-  // 1. Initialize UGF Client
-  const client = new UGFClient({ baseUrl: UGF_ENDPOINT });
   const senderAddress = await signer.getAddress();
 
-  // UGF chain and coin mappings matching Sepolia testnet rules
+  // UGF chain mappings matching Sepolia testnet rules
   const BASE_SEPOLIA_CHAIN_ID = "84532";
-  const TYI_USD_PAYMENT_COIN = "TYI_MOCK_USD";
-
   if (String(chainId) !== BASE_SEPOLIA_CHAIN_ID) {
     throw new Error(`UGF testnet supports Base Sepolia (chain ${BASE_SEPOLIA_CHAIN_ID}) only. Current: ${chainId}`);
   }
 
-  // 2. Perform implicit/explicit relayer auth
-  if (client.auth && typeof client.auth.login === "function") {
-    await client.auth.login(signer);
-  } else if (typeof (client as any).authenticate === "function") {
-    await (client as any).authenticate(signer);
-  } else if (typeof (client as any).login === "function") {
-    await (client as any).login(signer);
+  // 1. Phase A: QUOTE
+  const calls = [{ target: to, calldata: data, value: "0" }];
+  
+  const quoteRes = await fetch(`${BACKEND_URL}/api/v1/quote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sender: senderAddress,
+      chainId,
+      calls,
+    }),
+  });
+
+  if (!quoteRes.ok) {
+    const errorData = await quoteRes.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Quote request failed with status ${quoteRes.status}`);
   }
 
-  // 3. Phase A: QUOTE
-  const txObject = {
-    from: senderAddress,
-    to: to,
-    data: data,
-    value: "0",
-  };
-
-  let quote: any;
-  if (client.quote && typeof client.quote.get === "function") {
-    quote = await client.quote.get({
-      payer_address: senderAddress,
-      tx_object: JSON.stringify(txObject),
-      payment_coin: TYI_USD_PAYMENT_COIN,
-    });
-  } else if (typeof (client as any).getQuote === "function") {
-    quote = await (client as any).getQuote({
-      payerAddress: senderAddress,
-      txObject: txObject,
-      paymentCoin: TYI_USD_PAYMENT_COIN,
-    });
-  } else {
-    throw new Error("[UGF] Unable to locate quote interface in the UGFClient package.");
-  }
-
-  const quoteId = quote.quote_id || quote.quoteId || quote.digest || quote.id || "unknown";
-  const gasCost = quote.settlement_amount || quote.settlementAmount || quote.cost || "0.00";
+  const quote = await quoteRes.json();
+  const quoteId = quote.quoteId;
+  const gasCost = quote.gasCostUsd;
 
   if (onQuote) {
     onQuote({
@@ -201,73 +182,108 @@ export async function sendUGFDonation({
     });
   }
 
-  // 4. Phase B: SETTLE (Authorization of payment coin)
-  if (client.payment && client.payment.x402 && typeof client.payment.x402.execute === "function") {
-    await client.payment.x402.execute({ quote, signer });
-  } else if (client.settle && typeof (client as any).settle === "function") {
-    await (client as any).settle({ quote, signer });
-  } else if (typeof (client as any).pay === "function") {
-    await (client as any).pay({ quote, signer });
-  } else if (client.payment && typeof (client as any).payment.settle === "function") {
-    await (client as any).payment.settle({ quote, signer });
+  // 2. Phase B: SETTLE (Request auth signature and submit)
+  const authMessage =
+    `CryptoAid UGF Authorization\n\nQuote: ${quoteId}\nChain: 84532\n` +
+    `Gas: ${gasCost} Mock USD\n\nI authorize UGF to execute this gasless transaction.`;
+  
+  let signature: string;
+  try {
+    signature = await signer.signMessage(authMessage);
+  } catch (sigErr: any) {
+    const isRejected = 
+      sigErr.code === 4001 || 
+      sigErr.code === "ACTION_REJECTED" || 
+      sigErr.message?.toLowerCase().includes("rejected") || 
+      sigErr.message?.toLowerCase().includes("cancel");
+    if (isRejected) {
+      const rejectError = new Error("User rejected the UGF sponsorship signature request.");
+      (rejectError as any).isUserRejection = true;
+      throw rejectError;
+    }
+    throw sigErr;
   }
+
+  const settleRes = await fetch(`${BACKEND_URL}/api/v1/settle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      quoteId,
+      signature,
+    }),
+  });
+
+  if (!settleRes.ok) {
+    const errorData = await settleRes.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Settle request failed with status ${settleRes.status}`);
+  }
+
+  const settlement = await settleRes.json();
+  const settlementId = settlement.settlementId;
 
   if (onSettle) {
     onSettle();
   }
 
-  // 5. Phase C: EXECUTE (Sponsor and publish transaction to EVM nodes)
-  let userTxHash: string | undefined;
-  const quoteDigest = quote.digest || quote.quote_id || quote.quoteId || quote.id;
+  // 3. Phase C: EXECUTE (Sponsor and publish transaction)
+  const executeRes = await fetch(`${BACKEND_URL}/api/v1/execute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      settlementId,
+    }),
+  });
 
-  if (client.chains && client.chains.evm && typeof client.chains.evm.sponsorAndExecute === "function") {
-    const result = await client.chains.evm.sponsorAndExecute(
-      quoteDigest,
-      signer,
-      async () => ({
-        to: to,
-        data: data,
-        value: 0n,
-      })
-    );
-    userTxHash = result.userTxHash || result.txHash || result.hash || result.transactionHash;
-  } else if (typeof (client as any).execute === "function") {
-    const result = await (client as any).execute({
-      quote,
-      signer,
-      txObject: { to, data, value: "0" },
-    });
-    userTxHash = result.userTxHash || result.txHash || result.hash || result.transactionHash;
-  } else if ((client as any).evm && typeof (client as any).evm.execute === "function") {
-    const result = await (client as any).evm.execute(quoteDigest, signer, { to, data, value: 0n });
-    userTxHash = result.userTxHash || result.txHash || result.hash || result.transactionHash;
+  if (!executeRes.ok) {
+    const errorData = await executeRes.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Execute request failed with status ${executeRes.status}`);
   }
 
-  if (!userTxHash) {
-    throw new Error("[UGF] Relayer execution completed but failed to resolve a transaction hash.");
-  }
+  const execution = await executeRes.json();
+  const executionId = execution.executionId;
 
-  if (onExecute) {
-    onExecute(userTxHash);
-  }
-
-  // 6. Phase D: CONFIRM (Wait for mining receipt)
+  // 4. Phase D: CONFIRM (Poll status until mined)
+  let transactionHash = "";
   let blockNumber = 0;
-  try {
-    console.log("[UGF] Waiting for transaction receipt confirmation on-chain:", userTxHash);
-    const receipt = await provider.waitForTransaction(userTxHash);
-    if (receipt) {
-      blockNumber = receipt.blockNumber || 0;
-      console.log("[UGF] Transaction successfully confirmed in block:", blockNumber);
-    } else {
-      console.warn("[UGF] Mined transaction receipt confirmation returned null, proceeding anyway.");
+  let confirmed = false;
+
+  for (let i = 0; i < 45; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    const statusRes = await fetch(`${BACKEND_URL}/api/v1/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        executionId,
+      }),
+    });
+
+    if (!statusRes.ok) {
+      console.warn("[UGF] Status check failed, retrying...");
+      continue;
     }
-  } catch (confirmErr: any) {
-    console.warn("[UGF] Mined transaction receipt confirmation error or timeout, proceeding anyway:", confirmErr);
+
+    const statusData = await statusRes.json();
+    if (statusData.status === "confirmed") {
+      transactionHash = statusData.transactionHash;
+      blockNumber = statusData.blockNumber || 0;
+      confirmed = true;
+      break;
+    } else if (statusData.status === "failed") {
+      throw new Error(statusData.error || "Transaction execution failed on-chain.");
+    }
+  }
+
+  if (!confirmed) {
+    throw new Error("Timeout waiting for transaction confirmation on-chain.");
+  }
+
+  if (onExecute && transactionHash) {
+    onExecute(transactionHash);
   }
 
   return {
-    transactionHash: userTxHash,
+    transactionHash,
     blockNumber,
   };
 }

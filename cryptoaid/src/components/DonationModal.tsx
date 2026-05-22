@@ -381,7 +381,7 @@ export default function DonationModal({
 
     if (isFallbackApprove) {
       if (currentStepNum === 1) {
-        let desc = "Executing gasless approval via Universal Gas Framework...";
+        let desc = "Executing ETH-Free approval via Universal Gas Framework (UGC Gas)...";
         let badge = "Preparing...";
         if (ugfStepStatus === "quoting") {
           desc = "Estimating network sponsor quote for approval...";
@@ -397,7 +397,7 @@ export default function DonationModal({
           badge = "Indexing";
         }
         return {
-          title: "Step 1/2: Gasless Token Approval",
+          title: "Step 1/2: ETH-Free Token Approval",
           desc,
           badge,
           icon: "loading",
@@ -406,7 +406,7 @@ export default function DonationModal({
         };
       } else {
         return {
-          title: "Step 1/2: Gasless Token Approval",
+          title: "Step 1/2: ETH-Free Token Approval",
           desc: "Sponsored approval transaction successful and confirmed on Base Sepolia!",
           badge: "Confirmed",
           icon: "success",
@@ -442,7 +442,7 @@ export default function DonationModal({
     
     if (!step1.isCompleted) {
       return {
-        title: isFallbackApprove ? "Step 2/2: Gasless Donation Submission" : "UGF Gasless Submission",
+        title: isFallbackApprove ? "Step 2/2: ETH-Free Donation Submission" : "UGF ETH-Free Submission",
         desc: "Awaiting token approval completion before initiating sponsored donation...",
         badge: "Pending",
         icon: "pending",
@@ -455,7 +455,7 @@ export default function DonationModal({
     
     if (isCompleted) {
       return {
-        title: isFallbackApprove ? "Step 2/2: Gasless Donation Submission" : "UGF Gasless Submission",
+        title: isFallbackApprove ? "Step 2/2: ETH-Free Donation Submission" : "UGF ETH-Free Submission",
         desc: "Sponsored donation transaction completed and successfully minted on Base Sepolia!",
         badge: "Confirmed",
         icon: "success",
@@ -464,13 +464,13 @@ export default function DonationModal({
       };
     }
 
-    let desc = "Relaying gasless donation payload to Universal Gas Framework relayer...";
+    let desc = "Relaying ETH-Free donation payload to Universal Gas Framework relayer with UGC Gas...";
     let badge = "Preparing...";
     if (ugfStepStatus === "quoting") {
       desc = "Estimating sponsored gas quote for donation execution...";
       badge = "Quoting Sponsor";
     } else if (ugfStepStatus === "settling") {
-      desc = "Please authorize the gasless donation settlement signature in your wallet...";
+      desc = "Please authorize the ETH-Free donation settlement signature in your wallet (gas paid in Mock USD)...";
       badge = "Awaiting Sign";
     } else if (ugfStepStatus === "executing") {
       desc = "Minting your donation block on Base Sepolia via UGF gas relays...";
@@ -478,7 +478,7 @@ export default function DonationModal({
     }
 
     return {
-      title: isFallbackApprove ? "Step 2/2: Gasless Donation Submission" : "UGF Gasless Submission",
+      title: isFallbackApprove ? "Step 2/2: ETH-Free Donation Submission" : "UGF ETH-Free Submission",
       desc,
       badge,
       icon: "loading",
@@ -543,7 +543,7 @@ export default function DonationModal({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                  Gasless Donation
+                  ETH-Free Donation
                 </h3>
                 <span className="text-[10px] text-slate-500 font-light block max-w-[180px] truncate">{campaign.title}</span>
               </div>
@@ -762,7 +762,7 @@ export default function DonationModal({
                         <svg className="h-4 w-4 fill-slate-950 animate-pulse" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
-                        <span>Approve & Give Gasless</span>
+                        <span>Approve & Give (UGC Gas)</span>
                         <ArrowRight className="h-4 w-4" />
                       </motion.button>
                     )}
@@ -890,7 +890,7 @@ export default function DonationModal({
                   </div>
 
                   <p className="text-slate-500 text-[10.5px] font-mono max-w-[280px] mx-auto leading-relaxed">
-                    Sponsor nodes are verifying permit signatures and executing gasless transfers on the EVM state.
+                    Sponsor nodes are verifying permit signatures and executing UGF-relayed transfers on the EVM state.
                   </p>
                 </motion.div>
               )}
@@ -910,7 +910,7 @@ export default function DonationModal({
                     </div>
                     <h4 className="text-xl font-bold text-white tracking-tight">Donation Relayed!</h4>
                     <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                      Your gasless gift of <span className="text-emerald-400 font-bold font-mono">${finalAmount} UGC</span> has been successfully minted on-chain.
+                      Your ETH-Free gift of <span className="text-emerald-400 font-bold font-mono">${finalAmount} UGC</span> has been successfully minted on-chain.
                     </p>
                   </div>
 
@@ -937,12 +937,12 @@ export default function DonationModal({
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-455">
-                      <span>Network Gas Saved</span>
+                      <span>Network Gas Cost</span>
                       <span className="text-purple-400 font-bold font-mono flex items-center gap-1.5 uppercase text-[9.5px]">
                         <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg> 
-                        100% Sponsored
+                        0 ETH (Paid in UGC)
                       </span>
                     </div>
 
@@ -968,11 +968,11 @@ export default function DonationModal({
                       <Twitter className="h-3.5 w-3.5 fill-current" /> Share Your Impact on Twitter / X
                     </span>
                     <p className="font-light text-slate-300 leading-relaxed italic bg-black/40 p-2.5 rounded-lg border border-white/[0.04]">
-                      "I just made a gasless donation of {finalAmount} UGC to support the {campaign.title}! 🌳✨ Sponsored via UGF relayer"
+                      "I just made an ETH-Free donation of {finalAmount} UGC to support the {campaign.title}! 🌳✨ Gas paid in Mock USD via UGF"
                     </p>
                     <a
                       href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                        `I just made a gasless donation of $${finalAmount} UGC to support the ${campaign.title} on @CryptoAid via the Universal Gas Facilitation protocol! 🌳✨`
+                        `I just made an ETH-Free donation of $${finalAmount} UGC to support the ${campaign.title} on @CryptoAid via the Universal Gas Facilitation protocol! 🌳✨`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
