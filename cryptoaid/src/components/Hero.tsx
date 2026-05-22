@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Sparkles, Trophy, Users, Heart, Zap, ArrowRight, ShieldCheck, Coins } from "lucide-react";
+import { ArrowRight, Zap, ShieldCheck, Coins } from "lucide-react";
+import EarthGlobe from "./EarthGlobe";
 
 interface HeroProps {
   totalDonated: number;
@@ -8,157 +9,188 @@ interface HeroProps {
   avgGift: number;
   onConnectWallet: () => void;
   walletConnected: boolean;
+  onViewProtocol?: () => void;
 }
 
-export default function Hero({ totalDonated, totalDonors, avgGift, onConnectWallet, walletConnected }: HeroProps) {
+const FEATURES = [
+  { icon: Zap,          label: "Zero gas fees",      color: "text-emerald-400" },
+  { icon: Coins,        label: "No ETH required",    color: "text-blue-400"    },
+  { icon: ShieldCheck,  label: "Permit-based trust", color: "text-violet-400"  },
+];
+
+export default function Hero({
+  totalDonated,
+  totalDonors,
+  avgGift,
+  onConnectWallet,
+  walletConnected,
+  onViewProtocol,
+}: HeroProps) {
   return (
-    <section className="relative overflow-hidden py-12 md:py-20 lg:py-24" id="hero-section">
-      {/* Dynamic background glow spots */}
-      <div className="absolute top-1/4 left-1/4 -z-10 h-72 w-72 rounded-full bg-blue-600/10 blur-[100px] animate-pulse-glow" />
-      <div className="absolute top-1/3 right-1/4 -z-10 h-72 w-72 rounded-full bg-purple-600/10 blur-[100px] animate-pulse-glow" style={{ animationDelay: "-3s" }} />
+    <section
+      id="hero-section"
+      className="relative w-full overflow-hidden"
+      style={{ minHeight: "calc(100vh - 62px)" }}
+    >
+      {/* ── Subtle background noise / grain ─────────────────────────────── */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.025] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')] -z-10" />
 
-      {/* Embedded 3D Spline Interactive Canvas */}
-      <div className="absolute inset-0 -z-20 w-full h-full flex items-center justify-center opacity-65 pointer-events-none md:scale-110 lg:scale-130 select-none">
-        <div className="w-full h-full max-w-5xl max-h-5xl flex items-center justify-center relative">
-          {/* @ts-ignore */}
-          <spline-viewer
-            url="https://prod.spline.design/rGWRvwzQMFkkucaL/scene.splinecode"
-            style={{ width: "100%", height: "100%" }}
-            loading-type="eager"
-          />
-          {/* High-fidelity Radial Fog/Glow Overlay to naturally mask Spline boundaries */}
-          <div className="absolute inset-0 bg-radial-[circle_at_center,transparent_45%,#0a0a0f_100%] pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-[#0a0a0f]/60 pointer-events-none" />
-        </div>
-      </div>
+      {/* ── Very soft ambient glow — not distracting ─────────────────────── */}
+      <div className="pointer-events-none absolute top-[-20%] right-[5%] h-[600px] w-[600px] rounded-full bg-blue-600/[0.07] blur-[120px] -z-10" />
+      <div className="pointer-events-none absolute bottom-[-10%] left-[5%] h-[400px] w-[400px] rounded-full bg-indigo-500/[0.05] blur-[100px] -z-10" />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center relative z-10">
-        {/* Animated Feature Badge */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-blue-300 shadow-lg shadow-blue-500/5 mb-6"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-blue-400 animate-sparkle" />
-          <span>UGF Protocol Powered on Base Sepolia</span>
-        </motion.div>
+      {/* ── Two-column layout ─────────────────────────────────────────────── */}
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-16 h-full">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-12 py-16 lg:py-0 lg:min-h-[calc(100vh-62px)]">
 
-        {/* Cinematic Header Text */}
-        <div className="max-w-4xl mx-auto mb-8">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-none font-sans"
+          {/* ──────────── LEFT COLUMN — Content ─────────────────────────── */}
+          <div className="flex-1 max-w-[560px] flex flex-col justify-center">
+
+            {/* Eyebrow label */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-6 inline-flex items-center gap-2"
+            >
+              <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                <span className="h-px w-6 bg-slate-600" />
+                UGF Protocol · Base Sepolia
+              </span>
+            </motion.div>
+
+            {/* Headline */}
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.08 }}
+              className="text-[42px] sm:text-[52px] lg:text-[58px] font-bold leading-[1.08] tracking-[-0.03em] text-white mb-5"
+            >
+              Give globally.<br />
+              <span className="text-slate-400">Pay zero gas.</span>
+            </motion.h1>
+
+            {/* Subheading */}
+            <motion.p
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.14 }}
+              className="text-[15px] leading-[1.75] text-slate-500 mb-8 max-w-[460px]"
+            >
+              The first frictionless gasless donation platform on Base. No ETH needed,
+              no bridges, no complexity — just sign and give.
+            </motion.p>
+
+            {/* Feature list */}
+            <motion.ul
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex flex-col gap-2.5 mb-10"
+            >
+              {FEATURES.map(({ icon: Icon, label, color }) => (
+                <li key={label} className="flex items-center gap-3 text-[13px] text-slate-400">
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/[0.04] border border-white/[0.07] ${color}`}>
+                    <Icon className="h-3 w-3" />
+                  </span>
+                  {label}
+                </li>
+              ))}
+            </motion.ul>
+
+            {/* CTA buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.26 }}
+              className="flex items-center gap-3 flex-wrap"
+            >
+              {!walletConnected ? (
+                <button
+                  onClick={onConnectWallet}
+                  id="hero-connect-wallet-btn"
+                  className="
+                    inline-flex items-center gap-2 rounded-lg
+                    bg-white text-[#050508]
+                    px-5 py-2.5 text-[13px] font-semibold
+                    hover:bg-slate-100 active:scale-[0.98]
+                    transition-all duration-150 cursor-pointer
+                    shadow-[0_2px_20px_rgba(0,0,0,0.5)]
+                  "
+                >
+                  Connect Wallet
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <a
+                  href="#campaigns-grid-section"
+                  className="
+                    inline-flex items-center gap-2 rounded-lg
+                    bg-white text-[#050508]
+                    px-5 py-2.5 text-[13px] font-semibold
+                    hover:bg-slate-100 active:scale-[0.98]
+                    transition-all duration-150
+                    shadow-[0_2px_20px_rgba(0,0,0,0.5)]
+                  "
+                >
+                  Browse Campaigns
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </a>
+              )}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onViewProtocol?.();
+                }}
+                className="
+                  inline-flex items-center gap-2 rounded-lg
+                  border border-white/[0.09] bg-white/[0.03]
+                  px-5 py-2.5 text-[13px] font-medium text-slate-300
+                  hover:bg-white/[0.06] hover:border-white/[0.14]
+                  transition-all duration-150 cursor-pointer
+                "
+              >
+                How it works
+              </button>
+            </motion.div>
+
+            {/* ── Stats bar ─────────────────────────────────────────── */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.7, delay: 0.4 }}
+              className="mt-12 pt-8 border-t border-white/[0.06] grid grid-cols-3 gap-6"
+            >
+              {[
+                { value: `$${totalDonated.toLocaleString()}`, label: "Total donated",  sub: "$0 gas" },
+                { value: totalDonors.toString(),               label: "Unique donors",  sub: "On Base Sepolia" },
+                { value: `$${avgGift.toFixed(1)}`,             label: "Avg. gift size", sub: "Direct to cause" },
+              ].map(({ value, label, sub }) => (
+                <div key={label} className="flex flex-col gap-1">
+                  <span className="text-[22px] font-bold tracking-tight text-white">{value}</span>
+                  <span className="text-[11px] text-slate-500 font-medium">{label}</span>
+                  <span className="text-[10px] text-emerald-500 font-medium">{sub}</span>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* ──────────── RIGHT COLUMN — Globe ──────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-shrink-0 w-full max-w-[520px] lg:max-w-[580px]"
+            style={{ aspectRatio: "1 / 1" }}
           >
-            Give Globally. <br />
-            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent glow-text-blue">
-              Pay Zero Gas.
-            </span>
-          </motion.h1>
+            {/* Outer ring glow */}
+            <div className="relative w-full h-full">
+              <div className="absolute inset-[6%] rounded-full bg-blue-500/[0.06] blur-[40px]" />
+              <EarthGlobe />
+            </div>
+          </motion.div>
 
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="mt-6 text-base sm:text-lg md:text-xl text-slate-400 font-normal leading-relaxed max-w-2xl mx-auto"
-          >
-            The world's first frictionless, gasless donation platform. No gas fees, no ETH requirements, no complex bridges. Make your full impact felt with Universal Gas Facilitation (UGF).
-          </motion.p>
         </div>
-
-        {/* High visibility tech badges */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="flex flex-wrap justify-center gap-4 text-xs font-mono tracking-wider uppercase mb-14"
-        >
-          <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/5 px-4 py-2.5 text-slate-300">
-            <Zap className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400/20" />
-            <span>Zero Gas Fees</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/5 px-4 py-2.5 text-slate-300">
-            <Coins className="h-3.5 w-3.5 text-blue-400" />
-            <span>Zero ETH Needed</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/5 px-4 py-2.5 text-slate-300">
-            <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
-            <span>Permit-based Trust</span>
-          </div>
-        </motion.div>
-
-        {/* Live Metrics Ticker Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4, type: "spring" }}
-          className="mx-auto max-w-3xl rounded-2xl glass-panel border-white/10 p-6 md:p-8 shadow-2xl relative"
-          id="metrics-ticker"
-        >
-          {/* subtle decoration to enhance depth */}
-          <div className="absolute inset-y-0 left-0 w-[4px] bg-gradient-to-b from-blue-500 to-purple-600 rounded-l-2xl" />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-white/5">
-            {/* Stat 1 */}
-            <div className="flex flex-col items-center justify-center pb-4 md:pb-0">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-mono font-semibold tracking-wider uppercase mb-1">
-                <Heart className="h-4 w-4 text-rose-500 fill-rose-500/10" />
-                <span>Total Sponsored</span>
-              </div>
-              <motion.div
-                key={totalDonated}
-                initial={{ scale: 0.95, opacity: 0.8 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent font-sans"
-              >
-                ${totalDonated.toLocaleString()}
-              </motion.div>
-              <span className="text-[10px] text-emerald-400 font-semibold font-mono mt-0.5">
-                $0.00 Gas Spent
-              </span>
-            </div>
-
-            {/* Stat 2 */}
-            <div className="flex flex-col items-center justify-center py-4 md:py-0 md:px-4">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-mono font-semibold tracking-wider uppercase mb-1">
-                <Users className="h-4 w-4 text-blue-400" />
-                <span>Unique Donors</span>
-              </div>
-              <motion.div
-                key={totalDonors}
-                initial={{ scale: 0.95, opacity: 0.8 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent font-sans"
-              >
-                {totalDonors}
-              </motion.div>
-              <span className="text-[10px] text-slate-500 font-mono mt-0.5">
-                Active on Base Sepolia
-              </span>
-            </div>
-
-            {/* Stat 3 */}
-            <div className="flex flex-col items-center justify-center pt-4 md:pt-0 md:pl-4">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-mono font-semibold tracking-wider uppercase mb-1">
-                <Trophy className="h-4 w-4 text-amber-400" />
-                <span>Average Gift</span>
-              </div>
-              <motion.div
-                key={avgGift}
-                initial={{ scale: 0.95, opacity: 0.8 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent font-sans"
-              >
-                ${avgGift.toFixed(1)}
-              </motion.div>
-              <span className="text-[10px] text-slate-500 font-mono mt-0.5">
-                Full Value Direct to Cause
-              </span>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </section>
   );

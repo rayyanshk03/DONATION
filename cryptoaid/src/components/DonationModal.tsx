@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Zap, Check, ShieldCheck, ArrowRight, Twitter, ExternalLink, RefreshCw, KeyRound, ArrowUpRight, HelpCircle } from "lucide-react";
+import { X, Zap, Check, ShieldCheck, ArrowRight, Twitter, ExternalLink, RefreshCw, KeyRound, ArrowUpRight, HelpCircle, Leaf, Droplets, GraduationCap, Globe, Wallet, Lock } from "lucide-react";
 import { Campaign, Donation } from "../types";
 import { generateRandomHash } from "../mockData";
 import { ethers } from "ethers";
@@ -13,7 +13,6 @@ import {
   tryPermitSignature,
   sendUGFDonation,
 } from "../web3Service";
-
 
 interface DonationModalProps {
   campaign: Campaign | null;
@@ -28,6 +27,59 @@ interface DonationModalProps {
 
 type ModalStep = "amount" | "processing" | "success";
 
+const getCategoryTheme = (category: string) => {
+  switch (category) {
+    case "Environmental":
+      return {
+        accent: "emerald",
+        badgeBg: "bg-emerald-500/10",
+        badgeText: "text-emerald-450 border-emerald-500/20",
+        buttonGrad: "from-emerald-400 via-teal-500 to-emerald-600 hover:from-emerald-300 hover:via-teal-400 hover:to-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.35)]",
+        focusBorder: "focus-within:border-emerald-500/40 focus-within:shadow-[0_0_12px_rgba(16,185,129,0.08)]",
+        presetActive: "bg-emerald-500/10 text-emerald-450 border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)]",
+        textAccent: "text-emerald-450",
+        iconColor: "text-emerald-400",
+        glowBg: "bg-emerald-500/20",
+      };
+    case "Humanitarian":
+      return {
+        accent: "blue",
+        badgeBg: "bg-blue-500/10",
+        badgeText: "text-blue-450 border-blue-500/20",
+        buttonGrad: "from-blue-400 via-sky-500 to-indigo-600 hover:from-blue-300 hover:via-sky-400 hover:to-indigo-500 shadow-[0_0_20px_rgba(59,130,246,0.2)] hover:shadow-[0_0_25px_rgba(59,130,246,0.35)]",
+        focusBorder: "focus-within:border-blue-500/40 focus-within:shadow-[0_0_12px_rgba(59,130,246,0.08)]",
+        presetActive: "bg-blue-500/10 text-blue-450 border-blue-500/35 shadow-[0_0_12px_rgba(59,130,246,0.15)]",
+        textAccent: "text-blue-455",
+        iconColor: "text-blue-400",
+        glowBg: "bg-blue-500/20",
+      };
+    case "Education":
+      return {
+        accent: "purple",
+        badgeBg: "bg-purple-500/10",
+        badgeText: "text-purple-400 border-purple-500/20",
+        buttonGrad: "from-purple-400 via-fuchsia-500 to-pink-600 hover:from-purple-300 hover:via-fuchsia-400 hover:to-pink-500 shadow-[0_0_20px_rgba(168,85,247,0.2)] hover:shadow-[0_0_25px_rgba(168,85,247,0.35)]",
+        focusBorder: "focus-within:border-purple-500/40 focus-within:shadow-[0_0_12px_rgba(168,85,247,0.08)]",
+        presetActive: "bg-purple-500/10 text-purple-450 border-purple-500/35 shadow-[0_0_12px_rgba(168,85,247,0.15)]",
+        textAccent: "text-purple-455",
+        iconColor: "text-purple-400",
+        glowBg: "bg-purple-500/20",
+      };
+    default:
+      return {
+        accent: "slate",
+        badgeBg: "bg-slate-500/10",
+        badgeText: "text-slate-400 border-slate-500/20",
+        buttonGrad: "from-slate-500 via-slate-600 to-slate-700 hover:from-slate-400 hover:via-slate-500 hover:to-slate-600 shadow-slate-950/20 focus:ring-slate-500/20",
+        focusBorder: "focus-within:border-slate-500/40",
+        presetActive: "bg-slate-500/10 text-slate-400 border-slate-500/35 shadow-[0_0_12px_rgba(148,163,184,0.15)]",
+        textAccent: "text-slate-400",
+        iconColor: "text-slate-400",
+        glowBg: "bg-slate-550/20",
+      };
+  }
+};
+
 export default function DonationModal({
   campaign,
   walletConnected,
@@ -40,10 +92,10 @@ export default function DonationModal({
 }: DonationModalProps) {
   if (!campaign) return null;
 
+  const theme = getCategoryTheme(campaign.category);
+
   const [step, setStep] = useState<ModalStep>("amount");
-  const [selectedAmount, setSelectedAmount] = useState<number>(25);
-  const [customAmountStr, setCustomAmountStr] = useState<string>("");
-  const [useCustom, setUseCustom] = useState<boolean>(false);
+  const [customAmountStr, setCustomAmountStr] = useState<string>("25");
   const [gaslessPermitPhase, setGaslessPermitPhase] = useState<"not_started" | "signing" | "sending" | "complete">("not_started");
   const [isPreApproved, setIsPreApproved] = useState<boolean>(false);
   const [isFallbackApprove, setIsFallbackApprove] = useState<boolean>(false);
@@ -54,18 +106,30 @@ export default function DonationModal({
   const [modalError, setModalError] = useState<string | null>(null);
 
   const presets = [10, 25, 50, 100];
-  const finalAmount = useCustom ? (parseFloat(customAmountStr) || 0) : selectedAmount;
+  const finalAmount = parseFloat(customAmountStr) || 0;
 
-  // Generate confetti elements on success
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case "Environmental":
+        return <Leaf className="h-4.5 w-4.5 text-emerald-450" />;
+      case "Humanitarian":
+        return <Droplets className="h-4.5 w-4.5 text-blue-450" />;
+      case "Education":
+        return <GraduationCap className="h-4.5 w-4.5 text-purple-450" />;
+      default:
+        return <Globe className="h-4.5 w-4.5 text-slate-405" />;
+    }
+  };
+
   useEffect(() => {
     if (step === "success") {
       const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b"];
       const newConfetti = Array.from({ length: 45 }).map((_, i) => ({
         id: i,
-        left: Math.random() * 100, // percentage string
+        left: Math.random() * 100,
         color: colors[Math.floor(Math.random() * colors.length)],
-        duration: 2 + Math.random() * 2, // seconds
-        size: 4 + Math.random() * 6, // px
+        duration: 2 + Math.random() * 2,
+        size: 4 + Math.random() * 6,
       }));
       setConfetti(newConfetti);
     } else {
@@ -73,15 +137,12 @@ export default function DonationModal({
     }
   }, [step]);
 
-  // Handle amount option selecting
   const handlePresetSelect = (amt: number) => {
-    setUseCustom(false);
-    setSelectedAmount(amt);
+    setCustomAmountStr(amt.toString());
     setModalError(null);
   };
 
   const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUseCustom(true);
     const val = e.target.value;
     if (val === "" || /^\d*\.?\d*$/.test(val)) {
       setCustomAmountStr(val);
@@ -97,7 +158,6 @@ export default function DonationModal({
     }
   };
 
-  // Execute Gasless Web3 EIP-2612 and Multi-Transaction Approval via Universal Gas Framework
   const handleInitiateDonation = async () => {
     if (!walletConnected) {
       setModalError("Please connect your wallet first.");
@@ -119,7 +179,6 @@ export default function DonationModal({
       return;
     }
 
-    // Reset flow indicators and move to step 2: processing
     setIsPreApproved(false);
     setIsFallbackApprove(false);
     setStep("processing");
@@ -128,14 +187,11 @@ export default function DonationModal({
     setUgfStepStatus("quoting");
 
     try {
-      // 1. Get decimals and format finalAmount to BigInt
       const tokenContract = new ethers.Contract(UGC_TOKEN_ADDRESS, UGC_TOKEN_ABI, provider);
       const decimalsVal = await tokenContract.decimals();
       const amountWei = ethers.parseUnits(finalAmount.toString(), decimalsVal);
-
-      // 2. Query current allowance
       const userAddress = await signer.getAddress();
-      setGaslessPermitPhase("signing"); // Start in signature authorization phase
+      setGaslessPermitPhase("signing");
       
       const allowance = await tokenContract.allowance(userAddress, DONATION_CONTRACT_ADDRESS);
 
@@ -143,7 +199,6 @@ export default function DonationModal({
         console.log("[DonationModal] Sufficient allowance exists. Sponsoring direct donation...");
         setIsPreApproved(true);
         
-        // Flow A: Direct donation
         const vaultIface = new ethers.Interface(VAULT_ABI);
         const calldata = vaultIface.encodeFunctionData("donate", [BigInt(campaign.id), amountWei]);
         
@@ -174,7 +229,6 @@ export default function DonationModal({
       } else {
         console.log("[DonationModal] Insufficient allowance. Initiating EIP-2612 Permit...");
         
-        // Flow B & C: Request off-chain permit
         let permit = null;
         try {
           permit = await tryPermitSignature(
@@ -198,7 +252,6 @@ export default function DonationModal({
         if (permit) {
           console.log("[DonationModal] Permit signature acquired. Relaying single permit-donation transaction...");
           
-          // Flow B: Single-transaction permit donation
           const vaultIface = new ethers.Interface(VAULT_ABI);
           const calldata = vaultIface.encodeFunctionData("donateWithPermit", [
             BigInt(campaign.id),
@@ -237,8 +290,6 @@ export default function DonationModal({
           console.log("[DonationModal] Permit failed/unsupported. Falling back to multi-step approve + donate...");
           setIsFallbackApprove(true);
           
-          // Flow C: Standard approve followed by donate
-          // Step 1: Approve
           const approveCalldata = tokenContract.interface.encodeFunctionData("approve", [DONATION_CONTRACT_ADDRESS, amountWei]);
           
           setUgfStepStatus("quoting");
@@ -262,7 +313,6 @@ export default function DonationModal({
           setUgfStepStatus("confirmed");
           console.log("[DonationModal] Fallback approve tx confirmed. Waiting for allowance to update on-chain...");
 
-          // Polling verification loop to ensure allowance propagation has fully registered
           let allowanceUpdated = false;
           for (let i = 0; i < 15; i++) {
             const currentAllowance = await tokenContract.allowance(userAddress, DONATION_CONTRACT_ADDRESS);
@@ -278,7 +328,6 @@ export default function DonationModal({
             console.warn("[DonationModal] Allowance did not update within timeout. Proceeding anyway...");
           }
 
-          // Step 2: Donate
           const vaultIface = new ethers.Interface(VAULT_ABI);
           const calldata = vaultIface.encodeFunctionData("donate", [BigInt(campaign.id), amountWei]);
           
@@ -367,7 +416,6 @@ export default function DonationModal({
       }
     }
 
-    // Otherwise, EIP-2612 Permit Signing
     if (gaslessPermitPhase === "signing") {
       return {
         title: "EIP-2612 Permit Signature",
@@ -451,16 +499,16 @@ export default function DonationModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={step !== "processing" ? handleClose : undefined}
-          className="fixed inset-0 bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 bg-black/85 backdrop-blur-md"
         />
 
         {/* Modal Window */}
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          initial={{ scale: 0.9, opacity: 0, y: 15 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          transition={{ duration: 0.4, type: "spring", damping: 25 }}
-          className="glass-panel w-full max-w-lg rounded-2xl border-white/10 overflow-hidden shadow-2xl relative z-10 bg-[#0c0c15]"
+          exit={{ scale: 0.9, opacity: 0, y: 15 }}
+          transition={{ duration: 0.35, type: "spring", damping: 25 }}
+          className="w-full max-w-[460px] rounded-2xl border border-white/[0.06] bg-[#0c0c15] overflow-hidden shadow-[0_24px_50px_-12px_rgba(0,0,0,0.8)] relative z-10"
         >
           {/* Confetti generator */}
           {step === "success" && (
@@ -485,29 +533,41 @@ export default function DonationModal({
           )}
 
           {/* Modal Header */}
-          <div className="flex items-center justify-between border-b border-white/5 p-6 pb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{campaign.icon}</span>
+          <div className="flex items-center justify-between border-b border-white/[0.04] p-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/[0.08] flex items-center justify-center relative shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.04)]`}>
+                <div className={`absolute -inset-1 rounded-xl filter blur-sm opacity-20 ${theme.glowBg}`} />
+                <div className="relative z-10">
+                  {getCategoryIcon(campaign.category)}
+                </div>
+              </div>
               <div>
-                <h3 className="text-md font-bold text-white">Gasless Donation</h3>
-                <p className="text-[11px] text-slate-400 font-medium truncate max-w-[280px]">
-                  {campaign.title}
-                </p>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  Gasless Donation
+                </h3>
+                <span className="text-[10px] text-slate-500 font-light block max-w-[180px] truncate">{campaign.title}</span>
               </div>
             </div>
             
-            {step !== "processing" && (
-              <button
-                onClick={handleClose}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Live Network Status Badge */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-mono select-none font-medium">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+                Base Sepolia
+              </div>
+              {step !== "processing" && (
+                <button
+                  onClick={handleClose}
+                  className="rounded-lg p-1 text-slate-450 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Step content */}
-          <div className="p-6">
+          <div className="p-5">
             <AnimatePresence mode="wait">
               
               {/* Step A: Choose Amount */}
@@ -517,185 +577,266 @@ export default function DonationModal({
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   {/* Campaign summary info card */}
-                  <div className="rounded-xl bg-white/[0.01] border border-white/5 p-4 flex flex-col gap-1 text-xs">
-                    <span className="text-slate-400 font-medium">Beneficiary Cause</span>
-                    <span className="text-white font-semibold flex items-center gap-2">
+                  <div className="rounded-2xl bg-white/[0.015] border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.01)] p-4 flex flex-col gap-1 text-xs relative overflow-hidden">
+                    <div className="absolute -right-16 -top-16 w-32 h-32 rounded-full blur-3xl opacity-10 bg-current pointer-events-none" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-mono text-[9px] uppercase tracking-wider">Beneficiary Cause</span>
+                      <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${theme.badgeBg} ${theme.badgeText}`}>
+                        {campaign.category}
+                      </span>
+                    </div>
+                    <span className="text-white font-bold text-sm mt-1.5 leading-tight">
                       {campaign.title} 
-                      <span className="text-[10px] bg-blue-500/10 text-blue-400 py-0.5 px-2 rounded-full font-mono border border-blue-500/10 uppercase font-bold">{campaign.category}</span>
                     </span>
-                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                    <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed font-light line-clamp-2">
                       {campaign.description}
                     </p>
                   </div>
 
-                  {/* Amount Select Section */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 font-mono tracking-wider uppercase block mb-3">
-                      Select Giving Amount ($UGC)
-                    </label>
-                    <div className="grid grid-cols-4 gap-3">
-                      {presets.map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => handlePresetSelect(p)}
-                          className={`relative py-3 rounded-xl font-bold font-mono text-sm border transition-all cursor-pointer ${
-                            !useCustom && selectedAmount === p
-                              ? "bg-blue-600 text-white border-transparent shadow-lg shadow-blue-500/25"
-                              : "bg-white/[0.02] border-white/5 text-slate-300 hover:bg-white/5 hover:border-white/10"
-                          }`}
-                        >
-                          ${p}
-                        </button>
-                      ))}
+                  {/* Uniswap-Style Input Card & Preset Row */}
+                  <div className="space-y-3.5">
+                    <div className={`rounded-2xl bg-slate-950/40 border border-white/[0.06] transition-all duration-200 p-4 space-y-2.5 ${theme.focusBorder}`}>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">Amount to Donate</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500 font-mono">Balance:</span>
+                          <span className="font-mono text-slate-350 font-semibold">{walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UGC</span>
+                          {walletConnected && walletBalance > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomAmountStr(walletBalance.toString());
+                                setModalError(null);
+                              }}
+                              className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors border border-blue-500/20 hover:border-blue-500/40 px-1.5 py-0.5 rounded font-mono uppercase cursor-pointer"
+                            >
+                              MAX
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="text"
+                            value={customAmountStr}
+                            placeholder="0.00"
+                            onChange={handleCustomChange}
+                            className="bg-transparent border-0 p-0 text-3xl font-mono font-bold text-white focus:outline-none focus:ring-0 w-full placeholder-slate-700"
+                          />
+                        </div>
+                        
+                        {/* Token Badge */}
+                        <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] px-3 py-1.5 rounded-xl select-none shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]">
+                          <div className="h-5.5 w-5.5 rounded-full bg-gradient-to-br from-yellow-450 to-amber-500 flex items-center justify-center text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.25)]">
+                            <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2.2" fill="none" />
+                              <path d="M12 6.5v11M9.5 9h4.5a2 2 0 0 1 0 4h-4.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-bold font-mono text-white tracking-wide">UGC</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Custom input */}
-                    <div className="mt-4 relative">
-                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500 font-bold font-mono">
-                        $
-                      </div>
-                      <input
-                        type="text"
-                        value={customAmountStr}
-                        placeholder="Enter other custom amount"
-                        onChange={handleCustomChange}
-                        className="w-full glass-input pl-8 pr-16 py-3 font-mono font-bold text-sm text-white"
-                      />
-                      <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[11px] text-slate-500 font-mono uppercase">
-                        UGC TOKENS
-                      </div>
+                    {/* Preset Row */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {presets.map((p) => {
+                        const isActive = customAmountStr === p.toString();
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => handlePresetSelect(p)}
+                            className={`py-2.5 rounded-xl font-bold font-mono text-xs border transition-all cursor-pointer ${
+                              isActive
+                                ? theme.presetActive
+                                : "bg-white/[0.01] border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.03] hover:border-white/[0.12]"
+                            }`}
+                          >
+                            {p} UGC
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Gas Details Panel */}
-                  <div className="rounded-xl border border-white/5 bg-slate-950/60 p-4.5 space-y-3">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Donation Value</span>
-                      <span className="text-white font-medium font-mono">${finalAmount.toFixed(2)} UGC</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Gas Sponsoring</span>
-                      <span className="text-emerald-400 font-bold font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 uppercase">
-                        <Zap className="h-3 w-3 fill-emerald-400/20" /> Sponsored Vias UGF
+                  {/* DeFi Transaction Invoice */}
+                  <div className="rounded-2xl border border-white/[0.04] bg-[#09090f] p-4.5 space-y-3.5 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-white/[0.03] pb-2">
+                      <span className="text-[10px] font-bold text-slate-500 font-mono tracking-widest uppercase">Transaction Invoice</span>
+                      <span className="text-[9px] font-mono text-slate-400 bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.06]">
+                        UGF-v1 Vault
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-400 border-t border-white/5 pt-2">
-                      <span>Estimated Network Fee</span>
-                      <span className="font-mono text-slate-500 line-through">$4.12 ETH</span>
-                    </div>
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between text-xs text-slate-450">
+                        <span>Donation Value (Gross)</span>
+                        <span className="text-white font-medium font-mono">
+                          {finalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UGC
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                      <span>Final Cost to You</span>
-                      <span className="text-blue-400 font-mono font-extrabold">${finalAmount.toFixed(2)} UGC</span>
-                    </div>
-                  </div>
+                      <div className="flex items-center justify-between text-xs text-slate-455">
+                        <span>Cause Allocated (96%)</span>
+                        <span className="text-slate-200 font-medium font-mono">
+                          {(finalAmount * 0.96).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UGC
+                        </span>
+                      </div>
 
-                  {/* Balance checker banner */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Your Wallet Balance:</span>
-                    <span className="font-mono text-slate-300 font-semibold">{walletBalance.toFixed(2)} UGC</span>
+                      <div className="flex items-center justify-between text-xs text-slate-455">
+                        <span>UGF Protocol Cut (4%)</span>
+                        <span className="text-slate-350 font-medium font-mono">
+                          {(finalAmount * 0.04).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UGC
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-455">Gas Sponsoring</span>
+                        <span className="text-emerald-400 font-bold font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md text-[9.5px] flex items-center gap-1.5 uppercase select-none">
+                          <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg> 
+                          Sponsored Via UGF
+                        </span>
+                      </div>
+
+                      {/* Sponsor Details */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span>Relayer Node</span>
+                        <span className="font-mono text-slate-450 flex items-center gap-1">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          ugf-relayer.eth
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-450 border-t border-white/[0.03] pt-2.5">
+                        <span>Estimated Network Fee</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-slate-650 line-through">~0.0014 ETH (~$4.20)</span>
+                          <span className="text-[9px] font-mono bg-purple-500/10 text-purple-400 px-1 rounded border border-purple-500/20 font-bold">
+                            100% saved
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-350 border-t border-white/[0.03] pt-2.5">
+                        <span>Final Cost to You</span>
+                        <span className={`font-mono font-extrabold text-sm ${theme.textAccent}`}>
+                          {finalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UGC
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Error display */}
                   {modalError && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-300 text-xs rounded-xl font-medium">
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl font-medium text-center font-mono">
                       {modalError}
                     </div>
                   )}
 
                   {/* Interactive Button */}
-                  {!walletConnected ? (
-                    <button
-                      type="button"
-                      onClick={onConnectWallet}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-3 rounded-xl font-bold text-sm text-white cursor-pointer shadow-xl shadow-blue-500/10 transition-all flex items-center justify-center gap-2"
-                    >
-                      <span>Connect Wallet First</span>
-                    </button>
-                  ) : (
-                    <motion.button
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={handleInitiateDonation}
-                      className="w-full relative py-3.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white text-sm cursor-pointer shadow-xl shadow-blue-500/15 group overflow-hidden flex items-center justify-center gap-2 hover:brightness-110"
-                    >
-                      <Zap className="h-4 w-4 text-emerald-300 fill-emerald-300/10" />
-                      <span>Approve & Give Gasless</span>
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                    </motion.button>
-                  )}
+                  <div className="space-y-3">
+                    {!walletConnected ? (
+                      <button
+                        type="button"
+                        onClick={onConnectWallet}
+                        className="w-full bg-gradient-to-r from-blue-500 via-sky-500 to-indigo-600 hover:from-blue-400 hover:via-sky-400 hover:to-indigo-500 py-3.5 rounded-xl font-bold text-sm text-slate-950 cursor-pointer shadow-xl shadow-blue-500/10 hover:shadow-blue-500/20 transition-all flex items-center justify-center gap-2 duration-300"
+                      >
+                        <Wallet className="h-4.5 w-4.5 text-slate-950 fill-current" />
+                        <span>Connect Wallet First</span>
+                      </button>
+                    ) : (
+                      <motion.button
+                        whileHover={{ scale: 1.005 }}
+                        whileTap={{ scale: 0.995 }}
+                        onClick={handleInitiateDonation}
+                        className={`w-full py-3.5 rounded-xl font-bold bg-gradient-to-r ${theme.buttonGrad} text-slate-950 hover:brightness-110 text-sm cursor-pointer shadow-lg transition-all duration-300 flex items-center justify-center gap-2`}
+                      >
+                        <svg className="h-4 w-4 fill-slate-950 animate-pulse" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>Approve & Give Gasless</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </motion.button>
+                    )}
+
+                    {/* Trust Indicator Footer */}
+                    <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-500 pt-1 select-none font-mono">
+                      <Lock className="h-3.5 w-3.5 text-slate-500" />
+                      <span>EIP-2612 Permit · Gas Relay Vault · Audited Contracts</span>
+                    </div>
+                  </div>
                 </motion.div>
               )}
 
-              {/* Step B: Processing flow (Permit signing & Transaction submission) */}
+              {/* Step B: Processing flow */}
               {step === "processing" && (
                 <motion.div
                   key="processing-flow"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="py-8 text-center space-y-8"
+                  className="py-6 text-center space-y-7"
                 >
-                  <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-                    {/* Animated Loader Ring */}
-                    <div className="absolute inset-0 rounded-full border-2 border-white/5" />
+                  <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border border-white/5" />
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                      className="absolute inset-0 rounded-full border-2 border-t-blue-500 border-r-purple-500 border-b-emerald-500 border-l-transparent"
+                      className="absolute inset-0 rounded-full border border-t-blue-500 border-r-purple-500 border-b-emerald-500 border-l-transparent"
                     />
 
-                    {/* Central Dynamic Icon depending on UGF sub-step */}
                     {step2.isActive ? (
-                      <Zap className="h-8 w-8 text-purple-400 fill-purple-400/20 animate-neon-pulse" />
+                      <Zap className="h-6 w-6 text-purple-400 fill-purple-400/20" />
                     ) : step1.isActive && step1.icon === "signature" ? (
-                      <KeyRound className="h-8 w-8 text-blue-400 animate-float" />
+                      <KeyRound className="h-6 w-6 text-blue-400" />
                     ) : step1.isActive ? (
-                      <ShieldCheck className="h-8 w-8 text-blue-400 animate-float" />
+                      <ShieldCheck className="h-6 w-6 text-blue-400" />
                     ) : (
-                      <Zap className="h-8 w-8 text-emerald-400 fill-emerald-400/20 animate-neon-pulse" />
+                      <Zap className="h-6 w-6 text-emerald-400 fill-emerald-400/20" />
                     )}
                   </div>
 
-                  {/* Unified Steps Status Bar */}
-                  <div className="space-y-4 max-w-sm mx-auto">
-                    {/* Phase 1 Status */}
+                  {/* Steps Progress Checklist */}
+                  <div className="space-y-3.5 max-w-sm mx-auto">
+                    {/* Phase 1 */}
                     <div className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all text-xs text-left ${
                       step1.isActive
                         ? "bg-blue-500/5 border-blue-500/25 text-white font-semibold shadow-md shadow-blue-500/5"
                         : step1.isCompleted
-                        ? "bg-emerald-500/5 border-emerald-500/15 text-slate-300 font-medium"
-                        : "bg-white/[0.01] border-white/5 text-slate-500"
+                        ? "bg-emerald-500/5 border-emerald-500/15 text-slate-350 font-medium"
+                        : "bg-white/[0.01] border-white/5 text-slate-600"
                     }`}>
-                      <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold font-mono ${
+                      <div className={`flex h-5.5 w-5.5 items-center justify-center rounded-full text-[10px] font-bold font-mono ${
                         step1.isCompleted
-                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                          ? "bg-emerald-500/15 text-emerald-450 border border-emerald-500/25"
                           : step1.isActive
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20 font-bold"
-                          : "bg-white/5 border border-white/5 text-slate-500"
+                          ? "bg-blue-650 text-white shadow-md shadow-blue-500/20 font-bold"
+                          : "bg-white/5 border border-white/5 text-slate-600"
                       }`}>
-                        {step1.isCompleted ? <Check className="h-3.5 w-3.5" /> : "1"}
+                        {step1.isCompleted ? <Check className="h-3 w-3" /> : "1"}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="font-bold">{step1.title}</p>
-                          <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          <span className={`text-[8.5px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                             step1.isCompleted
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/10"
+                              ? "bg-emerald-500/10 text-emerald-400"
                               : step1.isActive
-                              ? "bg-blue-500/10 text-blue-400 border border-blue-500/10 animate-pulse"
-                              : "bg-white/5 text-slate-600"
+                              ? "bg-blue-500/10 text-blue-400 animate-pulse"
+                              : "bg-white/5 text-slate-650"
                           }`}>
                             {step1.badge}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-light mt-0.5 leading-normal">
+                        <p className="text-[10px] text-slate-450 font-light mt-0.5 leading-normal">
                           {step1.desc}
                         </p>
                       </div>
@@ -708,37 +849,37 @@ export default function DonationModal({
                       )}
                     </div>
 
-                    {/* Phase 2 Status */}
+                    {/* Phase 2 */}
                     <div className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all text-xs text-left ${
                       step2.isActive
                         ? "bg-purple-500/5 border-purple-500/25 text-white font-semibold shadow-md shadow-purple-500/5"
                         : step2.isCompleted
-                        ? "bg-emerald-500/5 border-emerald-500/15 text-slate-300 font-medium"
-                        : "bg-white/[0.01] border-white/5 text-slate-500"
+                        ? "bg-emerald-500/5 border-emerald-500/15 text-slate-350 font-medium"
+                        : "bg-white/[0.01] border-white/5 text-slate-600"
                     }`}>
-                      <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold font-mono ${
+                      <div className={`flex h-5.5 w-5.5 items-center justify-center rounded-full text-[10px] font-bold font-mono ${
                         step2.isCompleted
-                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                          ? "bg-emerald-500/15 text-emerald-450 border border-emerald-500/25"
                           : step2.isActive
-                          ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20 font-bold"
-                          : "bg-white/5 border border-white/5 text-slate-500"
+                          ? "bg-purple-650 text-white shadow-md shadow-purple-500/20 font-bold"
+                          : "bg-white/5 border border-white/5 text-slate-600"
                       }`}>
-                        {step2.isCompleted ? <Check className="h-3.5 w-3.5" /> : "2"}
+                        {step2.isCompleted ? <Check className="h-3 w-3" /> : "2"}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="font-bold">{step2.title}</p>
-                          <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          <span className={`text-[8.5px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                             step2.isCompleted
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/10"
+                              ? "bg-emerald-500/10 text-emerald-400"
                               : step2.isActive
-                              ? "bg-purple-500/10 text-purple-400 border border-purple-500/10 animate-pulse"
-                              : "bg-white/5 text-slate-600"
+                              ? "bg-purple-500/10 text-purple-400 animate-pulse"
+                              : "bg-white/5 text-slate-650"
                           }`}>
                             {step2.badge}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-light mt-0.5 leading-normal">
+                        <p className="text-[10px] text-slate-455 font-light mt-0.5 leading-normal">
                           {step2.desc}
                         </p>
                       </div>
@@ -748,8 +889,8 @@ export default function DonationModal({
                     </div>
                   </div>
 
-                  <p className="text-slate-400 text-xs font-mono max-w-xs mx-auto">
-                    Note: Your browser client coordinates are communicating directly with on-chain contracts on Base Sepolia.
+                  <p className="text-slate-500 text-[10.5px] font-mono max-w-[280px] mx-auto leading-relaxed">
+                    Sponsor nodes are verifying permit signatures and executing gasless transfers on the EVM state.
                   </p>
                 </motion.div>
               )}
@@ -761,45 +902,57 @@ export default function DonationModal({
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
-                  {/* Success Header Badge */}
                   <div className="text-center">
-                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-4 shadow-lg shadow-emerald-500/10">
-                      <Check className="h-7 w-7 text-emerald-400" />
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-3 shadow-[0_0_15px_rgba(16,185,129,0.15)] animate-bounce">
+                      <Check className="h-6 w-6 text-emerald-400" />
                     </div>
-                    <h4 className="text-2xl font-bold text-white tracking-tight">Donation Successful!</h4>
+                    <h4 className="text-xl font-bold text-white tracking-tight">Donation Relayed!</h4>
                     <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                      Your gasless gift of <span className="text-emerald-400 font-bold font-mono">${finalAmount} UGC</span> has been successfully sponsorship-routed via UGF networks.
+                      Your gasless gift of <span className="text-emerald-400 font-bold font-mono">${finalAmount} UGC</span> has been successfully minted on-chain.
                     </p>
                   </div>
 
-                  {/* Simulated Receipt details block */}
-                  <div className="rounded-xl border border-white/5 bg-white/[0.01] p-5.5 space-y-3">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Donation Gift</span>
-                      <span className="text-emerald-400 font-bold font-mono">${finalAmount} UGC</span>
+                  {/* Receipt details block */}
+                  <div className="rounded-xl border border-white/[0.05] bg-white/[0.01] p-4.5 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs text-slate-455">
+                      <span>Donation Amount (Gross)</span>
+                      <span className={`font-bold font-mono ${theme.textAccent}`}>{finalAmount} UGC</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>To Campaign</span>
-                      <span className="text-white font-medium">{campaign.title}</span>
+                    <div className="flex items-center justify-between text-xs text-slate-455">
+                      <span>Cause Allocated (Net)</span>
+                      <span className="text-emerald-400 font-semibold font-mono">{(finalAmount * 0.96).toFixed(2)} UGC</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Gas Fee Saved</span>
-                      <span className="text-purple-400 font-bold font-mono flex items-center gap-1">
-                        <Zap className="h-3.5 w-3.5 animate-pulsing text-purple-400" /> $4.12 ETH Sponsored
+                    <div className="flex items-center justify-between text-xs text-slate-455">
+                      <span>UGF Protocol Cut (4%)</span>
+                      <span className="text-slate-300 font-semibold font-mono">{(finalAmount * 0.04).toFixed(2)} UGC</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-455">
+                      <span>Beneficiary Campaign</span>
+                      <span className="text-white font-semibold truncate max-w-[190px]">{campaign.title}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-455">
+                      <span>Network Gas Saved</span>
+                      <span className="text-purple-400 font-bold font-mono flex items-center gap-1.5 uppercase text-[9.5px]">
+                        <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg> 
+                        100% Sponsored
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs border-t border-white/5 pt-2.5">
-                      <span className="text-slate-400 font-mono">TX Hash Explorer:</span>
+                    <div className="flex items-center justify-between text-xs border-t border-white/[0.04] pt-2.5">
+                      <span className="text-slate-500 font-mono">TX Hash Explorer</span>
                       <a
                         href={`https://sepolia.basescan.org/tx/${completionTxHash}`}
                         target="_blank"
-                        rel="referrer"
-                        className="text-blue-400 hover:text-blue-300 font-mono text-xs flex items-center gap-1 group/link cursor-pointer"
+                        rel="noopener noreferrer"
+                        className="text-blue-450 hover:text-blue-400 font-mono text-xs flex items-center gap-0.5 group/link cursor-pointer"
                       >
                         <span className="underline underline-offset-2">
                           {completionTxHash ? `${completionTxHash.slice(0, 8)}...${completionTxHash.slice(-8)}` : ""}
@@ -809,21 +962,21 @@ export default function DonationModal({
                     </div>
                   </div>
 
-                  {/* Social share widget card */}
-                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.02] p-4.5 text-xs text-left relative overflow-hidden flex flex-col gap-2.5">
-                    <span className="font-bold text-blue-400 flex items-center gap-2 uppercase tracking-wide text-[10px]">
-                      <Twitter className="h-3.5 w-3.5" /> Share Your Impact on Twitter / X
+                  {/* Social share widget */}
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.02] p-4 text-xs text-left relative overflow-hidden flex flex-col gap-2">
+                    <span className="font-bold text-blue-400 flex items-center gap-1.5 uppercase tracking-wider text-[9px] font-mono">
+                      <Twitter className="h-3.5 w-3.5 fill-current" /> Share Your Impact on Twitter / X
                     </span>
-                    <p className="font-light text-slate-300 leading-relaxed italic bg-black/30 p-2.5 rounded-lg border border-white/5">
-                      "I just donated ${finalAmount} gasless to Restore Amazonian Rainforests on CryptoAid! Sponsored by UGF 🌳🚀"
+                    <p className="font-light text-slate-300 leading-relaxed italic bg-black/40 p-2.5 rounded-lg border border-white/[0.04]">
+                      "I just made a gasless donation of {finalAmount} UGC to support the {campaign.title}! 🌳✨ Sponsored via UGF relayer"
                     </p>
                     <a
                       href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                        `I just made a gasless donation of $${finalAmount} UGC to restore rainforests on @CryptoAid via the Universal Gas Facilitation protocol! 🌳🚀`
+                        `I just made a gasless donation of $${finalAmount} UGC to support the ${campaign.title} on @CryptoAid via the Universal Gas Facilitation protocol! 🌳✨`
                       )}`}
                       target="_blank"
-                      rel="referrer"
-                      className="inline-flex self-start items-center gap-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold px-3.5 py-1.5 transition-colors text-xs font-sans cursor-pointer mt-1"
+                      rel="noopener noreferrer"
+                      className="inline-flex self-start items-center gap-1.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold px-3.5 py-1.5 transition-colors text-xs font-sans cursor-pointer mt-1"
                     >
                       <span>Share on X</span>
                       <ArrowUpRight className="h-3.5 w-3.5" />
@@ -833,7 +986,7 @@ export default function DonationModal({
                   {/* Footer Complete CTA */}
                   <button
                     onClick={handleClose}
-                    className="w-full bg-white text-slate-950 hover:bg-slate-100 py-3 rounded-xl font-bold text-sm transition-colors text-center block cursor-pointer shadow-lg shadow-black/40"
+                    className="w-full bg-white text-slate-950 hover:bg-slate-100 py-3 rounded-xl font-bold text-sm transition-colors text-center block cursor-pointer shadow-md shadow-black/20"
                   >
                     Done
                   </button>

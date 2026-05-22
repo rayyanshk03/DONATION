@@ -4,8 +4,8 @@ async function main() {
     const causes = [
         {
             id: 1,
-            name: "Plant Trees",
-            description: "Restore forests and fight climate change one tree at a time across six continents.",
+            name: "Amazon Rainforest Canopy Restoration",
+            description: "Restoring critical corridors of primary canopy in the Amazon basin. Partnering with indigenous rangers to cultivate and transplant native seed stock.",
             wallet: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
             icon: "🌳",
             tag: "Environmental",
@@ -14,8 +14,8 @@ async function main() {
         },
         {
             id: 2,
-            name: "Clean Water",
-            description: "Bring safe drinking water to communities in need — no one should die of thirst.",
+            name: "Solar Aquifer Purification Kiosks",
+            description: "Constructing solar-powered filtration hubs to extract and purify drinkable water from deep saline aquifers for off-grid communities.",
             wallet: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30",
             icon: "💧",
             tag: "Humanitarian",
@@ -24,8 +24,8 @@ async function main() {
         },
         {
             id: 3,
-            name: "Education Fund",
-            description: "Empower the next generation with access to quality education and digital literacy.",
+            name: "STEM Coding Labs & Satellite Hubs",
+            description: "Installing solar-powered internet terminals and rugged laptops preloaded with offline curriculum in remote high-altitude schools.",
             wallet: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
             icon: "📚",
             tag: "Education",

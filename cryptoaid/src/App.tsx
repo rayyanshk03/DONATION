@@ -4,9 +4,12 @@ import Hero from "./components/Hero";
 import CauseGrid from "./components/CauseGrid";
 import DonationModal from "./components/DonationModal";
 import ActivityLeaderboard from "./components/ActivityLeaderboard";
+import ProtocolDiagramView from "./components/ProtocolDiagramView";
+import CreatorDashboard from "./components/CreatorDashboard";
+
 import { Campaign, Donation, Leader } from "./types";
-import { formatAddress } from "./mockData";
-import { AlertCircle, HelpCircle, Info, Heart, Zap, Check, RefreshCw, KeyRound, ArrowUpRight, X } from "lucide-react";
+import { formatAddress, INITIAL_CAMPAIGNS, INITIAL_DONATIONS, INITIAL_LEADERS } from "./mockData";
+import { AlertCircle, HelpCircle, Heart, Zap, Check, RefreshCw, KeyRound, ArrowUpRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ethers } from "ethers";
 import {
@@ -20,6 +23,9 @@ import {
 } from "./web3Service";
 
 export default function App() {
+  // Navigation state
+  const [currentView, setCurrentView] = useState<"home" | "protocol" | "creator">("home");
+
   // Wallet state
   const [walletConnected, setWalletConnected] = useState<boolean>(false);
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -31,9 +37,9 @@ export default function App() {
   const [chainId, setChainId] = useState<number | null>(null);
 
   // Platform state
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [donations, setDonations] = useState<Donation[]>([]);
-  const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
+  const [donations, setDonations] = useState<Donation[]>(INITIAL_DONATIONS);
+  const [leaders, setLeaders] = useState<Leader[]>(INITIAL_LEADERS);
 
   // Faucet state
   const [isFauceting, setIsFauceting] = useState<boolean>(false);
@@ -80,6 +86,7 @@ export default function App() {
             imageGradient,
             tagColor,
             badgeBorder,
+            wallet: cause.wallet,
           };
         });
         setCampaigns(mapped);
@@ -370,9 +377,13 @@ export default function App() {
   const totalDonors = campaigns.reduce((acc, c) => acc + c.donorsCount, 0);
   const avgGift = totalDonated / totalDonors || 0;
 
+  if (currentView === "protocol") {
+    return <ProtocolDiagramView onBack={() => setCurrentView("home")} />;
+  }
+
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-[#f8fafc] font-sans overflow-x-hidden selection:bg-blue-500/30 selection:text-blue-200">
-      
+    <div className="min-h-screen bg-[#050508] font-sans selection:bg-blue-500/30 selection:text-blue-200">
+
       {/* Background Ambient Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#3b82f6]/15 rounded-full blur-[120px] pointer-events-none -z-10 animate-float-slow"></div>
       <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-[#8b5cf6]/20 rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse-glow"></div>
@@ -390,61 +401,54 @@ export default function App() {
           walletBalance={walletBalance}
           onConnectWallet={handleConnectWallet}
           onDisconnectWallet={handleDisconnectWallet}
+          onNavigate={(view) => setCurrentView(view)}
+          currentView={currentView}
         />
 
-        {/* Dynamic Warning Banners */}
+        {/* Wrong network banner */}
         {walletConnected && chainId !== TARGET_CHAIN_ID && (
-          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 mt-4">
+          <div className="mx-auto w-full max-w-[1440px] px-6 lg:px-16 mt-3">
             <motion.div
-              initial={{ scale: 0.98, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="relative rounded-2xl border border-red-500/25 bg-red-500/5 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xl backdrop-blur-md overflow-hidden"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between gap-4 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-4 py-3"
             >
-              <div className="absolute inset-y-0 left-0 w-1.5 bg-red-500" />
               <div className="flex items-center gap-3">
-                <AlertCircle className="h-5.5 w-5.5 text-red-400 shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-white font-sans">Wrong Blockchain Network</p>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed font-light">
-                    Your connected wallet is on Chain {chainId}. CryptoAid functions exclusively on Base Sepolia.
-                  </p>
-                </div>
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <p className="text-[13px] text-slate-300">
+                  Wrong network — you're on chain <span className="text-white font-medium">{chainId}</span>. Switch to Base Sepolia to continue.
+                </p>
               </div>
               <button
                 onClick={handleSwitchNetwork}
-                className="shrink-0 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white font-semibold px-5 py-2.5 text-xs transition-all cursor-pointer shadow-lg shadow-red-500/10"
+                className="shrink-0 rounded-md border border-red-500/30 bg-red-500/10 px-3.5 py-1.5 text-[12px] font-medium text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer whitespace-nowrap"
               >
-                Switch to Base Sepolia
+                Switch network
               </button>
             </motion.div>
           </div>
         )}
 
+        {/* Low balance banner */}
         {walletConnected && chainId === TARGET_CHAIN_ID && walletBalance < 10 && (
-          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 mt-4">
+          <div className="mx-auto w-full max-w-[1440px] px-6 lg:px-16 mt-3">
             <motion.div
-              initial={{ scale: 0.98, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="relative rounded-2xl border border-yellow-500/20 bg-yellow-500/5 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xl backdrop-blur-md overflow-hidden"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between gap-4 rounded-lg border border-white/[0.07] bg-white/[0.03] px-4 py-3"
             >
-              <div className="absolute inset-y-0 left-0 w-1.5 bg-yellow-500" />
               <div className="flex items-center gap-3">
-                <AlertCircle className="h-5.5 w-5.5 text-yellow-400 shrink-0 animate-pulse" />
-                <div>
-                  <p className="text-sm font-bold text-white font-sans">Low Mock USD Balance</p>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed font-light">
-                    You hold <span className="text-white font-medium font-mono">${walletBalance.toFixed(2)} UGC</span>. Claim testnet tokens to start sponsoring campaigns gaslessly.
-                  </p>
-                </div>
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                <p className="text-[13px] text-slate-400">
+                  Your balance is <span className="text-white font-medium">${walletBalance.toFixed(2)} UGC</span> — claim testnet tokens to donate gaslessly.
+                </p>
               </div>
-              
               <button
                 disabled={isFauceting}
                 onClick={handleClaimFaucet}
-                className="shrink-0 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-bold px-5 py-2.5 text-xs transition-all cursor-pointer shadow-lg shadow-yellow-500/10"
+                className="shrink-0 rounded-md border border-white/[0.08] bg-white/[0.05] px-3.5 py-1.5 text-[12px] font-medium text-slate-300 hover:bg-white/[0.09] hover:text-white disabled:opacity-40 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <Zap className="h-3.5 w-3.5 fill-slate-950/20" />
-                <span>{isFauceting ? "Claiming..." : "Claim 1,000 MUSD Gaslessly ⚡"}</span>
+                {isFauceting ? "Claiming..." : "Claim test tokens"}
               </button>
             </motion.div>
           </div>
@@ -522,149 +526,112 @@ export default function App() {
 
         {/* Cinematic Hero */}
         <main className="flex-1">
-          <Hero
-            totalDonated={totalDonated}
-            totalDonors={totalDonors}
-            avgGift={avgGift}
-            walletConnected={walletConnected}
-            onConnectWallet={handleConnectWallet}
-          />
+          {currentView === "creator" ? (
+            <CreatorDashboard
+              walletConnected={walletConnected}
+              walletAddress={walletAddress}
+              walletBalance={walletBalance}
+              onConnectWallet={handleConnectWallet}
+              campaigns={campaigns}
+              onRefreshCampaigns={fetchCampaigns}
+              donations={donations}
+            />
+          ) : (
+            <>
+              {/* Hero Banner */}
+              <Hero
+                totalDonated={totalDonated}
+                totalDonors={totalDonors}
+                avgGift={avgGift}
+                walletConnected={walletConnected}
+                onConnectWallet={handleConnectWallet}
+                onViewProtocol={() => setCurrentView("protocol")}
+              />
 
-          {/* Core Interactive Cause Card Section */}
-          <CauseGrid
-            campaigns={campaigns}
-            onDonateClick={handleOpenDonate}
-            walletConnected={walletConnected}
-            onConnectWallet={handleConnectWallet}
-          />
+              {/* Core Interactive Cause Card Section */}
+              <CauseGrid
+                campaigns={campaigns}
+                onDonateClick={handleOpenDonate}
+                walletConnected={walletConnected}
+                onConnectWallet={handleConnectWallet}
+              />
 
-          {/* Interactive Protocol Blueprint Explainer */}
-          <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10" id="ugf-protocol-specification">
-            <div className="rounded-3xl glass-panel relative p-8 md:p-12 border-white/8 overflow-hidden bg-gradient-to-br from-[#0c0c16] via-[#08080d] to-slate-950/40">
-              
-              {/* Neon border edge glowing trail */}
-              <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-                <div className="space-y-6">
-                  <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400 font-mono uppercase tracking-wide">
-                    <Heart className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Universal Gas Facilitation (UGF)</span>
-                  </div>
-
-                  <h3 className="text-2xl md:text-3xl font-extrabold text-white leading-tight font-sans">
-                    Frictionless Giving via Cryptographic Off-Chain Permits
-                  </h3>
-
-                  <p className="text-sm text-slate-400 leading-relaxed font-light">
-                    Legacy Web3 mechanics require donors to hold ETH for transaction fees, bridge back and forth, and trigger multiple signing approvals. UGF bypasses this friction by executing a signed off-chain <span className="text-white font-medium">EIP-2612 Permit</span>. 
-                  </p>
-
-                  <div className="space-y-4 pt-2">
-                    <div className="flex gap-3 text-xs leading-relaxed">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono font-bold">1</span>
-                      <div>
-                        <p className="font-bold text-white font-mono">Sign Your Permit</p>
-                        <p className="text-slate-400">Crypographically sign an off-chain spending allowance. Fast, secure, and 100% free.</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 text-xs leading-relaxed">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono font-bold">2</span>
-                      <div>
-                        <p className="font-bold text-white font-mono">Relay Sponsored Dispatch</p>
-                        <p className="text-slate-400">The platform's UGF relayer transmits your donation directly to the smart contracts, full-covering gas expenses.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Simulated visual blueprint cards */}
-                <div className="rounded-2xl border border-white/5 bg-slate-950/80 p-6 md:p-8 space-y-4 shadow-2xl relative select-none">
-                  {/* Subtle pulsing live indicator */}
-                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                    <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Protocol Pipeline Sandbox</span>
-                    <span className="text-[10px] font-semibold font-mono rounded px-2.5 py-1 flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                      </span>
-                      <span>On-Chain Live Feed</span>
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="p-3.5 rounded-xl bg-[#0c0c17]/90 border border-white/5 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-6 w-6 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold flex items-center justify-center">✔</div>
-                        <span className="text-xs text-slate-300 font-mono">EIP-2612 Permit Signatures</span>
-                      </div>
-                      <span className="text-[10.5px] text-slate-500 font-mono">Cryptographically Active</span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-[#0c0c17]/90 border border-white/5 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-6 w-6 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-mono font-bold flex items-center justify-center">✔</div>
-                        <span className="text-xs text-slate-300 font-mono">UGF Gas Relaying Engine</span>
-                      </div>
-                      <span className="text-[10.5px] text-emerald-400 font-semibold font-mono uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded">Sponsoring Gas</span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-[#0c0c17]/90 border border-white/5 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-6 w-6 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs font-mono font-bold flex items-center justify-center">✔</div>
-                        <span className="text-xs text-slate-300 font-mono">Base Sepolia Contract Executions</span>
-                      </div>
-                      <span className="text-[10.5px] text-slate-500 font-mono">Mined in Real Time</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-start gap-2.5 text-[11px] text-slate-400 leading-normal">
-                    <Info className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
-                    <span>
-                      Notice: CryptoAid is connected directly to Base Sepolia testnet contracts and live indexers. There are zero simulated, fake, or mock balances active in this view.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </section>
-
-          {/* Activity Logs & Leaderboards */}
-          <ActivityLeaderboard
-            donations={donations}
-            leaders={leaders}
-            onDonorClick={(addr) => {
-              // Quick mock address select for convenience
-              setWalletAddress(addr);
-              setWalletConnected(true);
-            }}
-          />
-
+              {/* Activity Logs & Leaderboards */}
+              <ActivityLeaderboard
+                donations={donations}
+                leaders={leaders}
+                onDonorClick={(addr) => {
+                  // Quick mock address select for convenience
+                  setWalletAddress(addr);
+                  setWalletConnected(true);
+                }}
+              />
+            </>
+          )}
         </main>
 
-        {/* Global Footer */}
-        <footer className="border-t border-white/5 py-8 text-xs text-slate-500 mt-auto bg-[#040406]/90">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-300">CryptoAid</span>
-              <span className="text-slate-600">|</span>
-              <span>Gasless Web3 Sponsorship Network v1.0</span>
-            </div>
+        {/* Footer */}
+        <footer className="border-t border-white/[0.05] mt-auto">
+          <div className="mx-auto max-w-[1440px] px-6 lg:px-16 py-8 flex flex-col sm:flex-row items-center justify-between gap-5">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/[0.1] shadow backdrop-blur-sm overflow-hidden group">
+                <svg
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  className="relative h-[16px] w-[16px] z-10"
+                >
+                  <defs>
+                    <linearGradient id="footer-logo-hex-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#3B82F6" />
+                      <stop offset="50%" stopColor="#6366F1" />
+                      <stop offset="100%" stopColor="#EC4899" />
+                    </linearGradient>
+                    <linearGradient id="footer-logo-heart-grad" x1="8" y1="8" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#EC4899" />
+                      <stop offset="100%" stopColor="#F43F5E" />
+                    </linearGradient>
+                  </defs>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-slate-400">
-              <a href="#navbar-header" className="hover:text-white transition-colors">Hero Ticker</a>
-              <a href="#campaigns-grid-section" className="hover:text-white transition-colors">Campaigns Directory</a>
-              <a href="#ugf-protocol-specification" className="hover:text-white transition-colors">UGF Blueprint</a>
-              <a href="#activity-leaderboard-section" className="hover:text-white transition-colors">Active Feeds</a>
-            </div>
+                  {/* Hexagonal Shield */}
+                  <path
+                    d="M16 3 L28.5 10.2 V24.8 L16 29 L3.5 24.8 V10.2 Z"
+                    stroke="url(#footer-logo-hex-grad)"
+                    strokeWidth="2.2"
+                    strokeLinejoin="round"
+                    fill="rgba(5, 5, 8, 0.4)"
+                  />
 
-            <div>
-              <p className="font-mono text-[10.5px] text-slate-600">Deployed with ❤ for Base Sepolia Ecosystem</p>
-            </div>
+                  {/* Glowing Heart */}
+                  <path
+                    d="M16 12 C14.7 10 11.5 10 10.2 11.5 C8.8 13 8.8 15.8 11 18 L16 22.5 L21 18 C23.2 15.8 23.2 13 21.8 11.5 C20.5 10 17.3 10 16 12 Z"
+                    fill="url(#footer-logo-heart-grad)"
+                  />
 
+                  {/* Network nodes */}
+                  <circle cx="16" cy="3" r="1.5" fill="#3B82F6" />
+                  <circle cx="28.5" cy="10.2" r="1.5" fill="#6366F1" />
+                  <circle cx="28.5" cy="24.8" r="1.5" fill="#EC4899" />
+                  <circle cx="16" cy="29" r="1.5" fill="#F43F5E" />
+                  <circle cx="3.5" cy="24.8" r="1.5" fill="#EC4899" />
+                  <circle cx="3.5" cy="10.2" r="1.5" fill="#3B82F6" />
+                </svg>
+              </div>
+              <span className="text-[13px] font-semibold text-white">CryptoAid</span>
+              <span className="text-slate-700">·</span>
+              <span className="text-[12px] text-slate-600">Gasless donations on Base</span>
+            </div>
+            <nav className="flex items-center gap-6 text-[12px] text-slate-500">
+              <a href="#hero-section" className="hover:text-slate-300 transition-colors">Home</a>
+              <a href="#campaigns-grid-section" className="hover:text-slate-300 transition-colors">Campaigns</a>
+              <button
+                onClick={() => setCurrentView("protocol")}
+                className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0 text-[12px] font-normal font-sans"
+              >
+                How it works
+              </button>
+              <a href="#activity-leaderboard-section" className="hover:text-slate-300 transition-colors">Activity</a>
+            </nav>
+            <p className="text-[11px] text-slate-700">Built on Base Sepolia</p>
           </div>
         </footer>
 

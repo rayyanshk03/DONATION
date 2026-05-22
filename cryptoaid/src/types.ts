@@ -12,6 +12,7 @@ export interface Campaign {
   imageGradient: string;
   tagColor: string;
   badgeBorder: string;
+  wallet: string;
 }
 
 export interface Donation {
