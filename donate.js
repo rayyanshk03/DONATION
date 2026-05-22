@@ -261,7 +261,7 @@ function validateAmount(amountUgc) {
     // Compare in token-wei to avoid float rounding issues
     try {
         const amountWei = ethers.parseUnits(String(amountUgc), UGC_DECIMALS);
-        if (ugcBalanceWei > 0n && amountWei > ugcBalanceWei) {
+        if (amountWei > ugcBalanceWei) {
             const humanBalance = Number(ethers.formatUnits(ugcBalanceWei, UGC_DECIMALS))
                 .toLocaleString('en-US', { maximumFractionDigits: 2 });
             showError(`Insufficient USD balance. Your wallet holds $${humanBalance}.`);
@@ -460,7 +460,7 @@ function onCauseSelected(cause) {
  *    Mock USD to the cause wallet.
  */
 async function onDonateSubmit() {
-    const { isConnected, signer, chainId } = WalletContext.getState();
+    const { isConnected, signer, address, chainId } = WalletContext.getState();
     if (!isConnected) { showToast('Please connect your wallet first.'); openWalletModal(); return; }
 
     const amountRaw = parseFloat(document.getElementById('donateAmount')?.value);
@@ -473,6 +473,8 @@ async function onDonateSubmit() {
     const originalHTML = btn.innerHTML;
     const SPINNER      = `<svg class="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
 
+
+
     let amountWei;
     try {
         amountWei = ethers.parseUnits(String(amountRaw), UGC_DECIMALS);
@@ -482,6 +484,7 @@ async function onDonateSubmit() {
 
     const ugcToken   = new ethers.Contract(UGC_TOKEN_ADDRESS, ERC20_ABI, signer);
     const needsApproval = ugcAllowanceWei < amountWei;
+    const hasTwoSteps = needsApproval;
 
     // ── Shared error classifier ───────────────────────────────────────────────
     function isRejection(err) {
@@ -536,19 +539,19 @@ async function onDonateSubmit() {
                     to: UGC_TOKEN_ADDRESS,
                     data: permitCalldata,
                     onQuote(quote) {
-                        showUGFPhase('quoting', { quoteId: quote.quoteId });
+                        showUGFPhase('quoting', { quoteId: quote.quoteId }, "Step 1 of 2: Gasless Token Approval");
                     },
                     onSettle() {
-                        showUGFPhase('settling');
+                        showUGFPhase('settling', {}, "Step 1 of 2: Gasless Token Approval");
                     },
                     onExecute(txHash) {
-                        showUGFPhase('executing', { hash: txHash });
+                        showUGFPhase('executing', { hash: txHash }, "Step 1 of 2: Gasless Token Approval");
                     },
                 });
 
-                showUGFPhase('confirmed');
-                await new Promise(r => setTimeout(r, 600));
-                hideTxPending();
+                showUGFPhase('confirmed', {}, "Step 1 of 2: Approval confirmed! ✓");
+                await new Promise(r => setTimeout(r, 1000));
+                // Keep overlay open for Step 2
                 await syncUgcData(true);
                 refreshSubmitBtn();
                 showToast('Mock USD permit approved successfully!', 'success');
@@ -582,19 +585,19 @@ async function onDonateSubmit() {
                     to: UGC_TOKEN_ADDRESS,
                     data: approveCalldata,
                     onQuote(quote) {
-                        showUGFPhase('quoting', { quoteId: quote.quoteId });
+                        showUGFPhase('quoting', { quoteId: quote.quoteId }, "Step 1 of 2: Gasless Token Approval");
                     },
                     onSettle() {
-                        showUGFPhase('settling');
+                        showUGFPhase('settling', {}, "Step 1 of 2: Gasless Token Approval");
                     },
                     onExecute(txHash) {
-                        showUGFPhase('executing', { hash: txHash });
+                        showUGFPhase('executing', { hash: txHash }, "Step 1 of 2: Gasless Token Approval");
                     },
                 });
 
-                showUGFPhase('confirmed');
-                await new Promise(r => setTimeout(r, 600));
-                hideTxPending();
+                showUGFPhase('confirmed', {}, "Step 1 of 2: Approval confirmed! ✓");
+                await new Promise(r => setTimeout(r, 1000));
+                // Keep overlay open for Step 2
                 await syncUgcData(true);
                 refreshSubmitBtn();
                 showToast('Mock USD approved successfully!', 'success');
@@ -625,6 +628,8 @@ async function onDonateSubmit() {
         amountWei
     ]);
 
+    const stepLabel = hasTwoSteps ? "Step 2 of 2: Sending Gasless Donation" : null;
+
     try {
         // Submit through the UGF gasless lifecycle: Quote → Settle → Execute → Confirm
         const receipt = await sendUGFDonation({
@@ -636,23 +641,23 @@ async function onDonateSubmit() {
 
             // Lifecycle callbacks — each one updates the 4-phase overlay
             onQuote(quote) {
-                showUGFPhase('quoting', { quoteId: quote.quoteId });
+                showUGFPhase('quoting', { quoteId: quote.quoteId }, stepLabel);
                 // Restore button state beneath the overlay
                 btn.innerHTML = originalHTML;
                 btn.disabled  = false;
                 refreshSubmitBtn();
             },
             onSettle() {
-                showUGFPhase('settling');
+                showUGFPhase('settling', {}, stepLabel);
             },
             onExecute(txHash) {
-                showUGFPhase('executing', { hash: txHash });
+                showUGFPhase('executing', { hash: txHash }, stepLabel);
             },
         });
 
         // Transaction confirmed on-chain — show final confirmed state
         const txHash = receipt.transactionHash;
-        showUGFPhase('confirmed');
+        showUGFPhase('confirmed', {}, stepLabel);
 
         // Visual pause for best user experience before presenting success screen
         await new Promise(r => setTimeout(r, 900));

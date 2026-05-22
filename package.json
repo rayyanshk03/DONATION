@@ -4,7 +4,7 @@
   "description": "CryptoAid — Gasless donation platform powered by UGF",
   "main": "script.js",
   "scripts": {
-    "dev": "npx serve .",
+    "dev": "npm run dev --prefix cryptoaid",
     "compile": "npx hardhat compile",
     "deploy:sepolia": "node scripts/deploy.js",
     "test": "npx hardhat test"

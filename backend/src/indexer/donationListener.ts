@@ -43,74 +43,92 @@ function getProvider() {
   return new ethers.JsonRpcProvider(env.rpcUrl);
 }
 
-export function startDonationListener() {
-  const provider = getProvider();
-  const contract = new ethers.Contract(env.vaultAddress, VAULT_ABI, provider);
-
-  console.log("* Connected to Base Sepolia RPC");
-  console.log("* Listening for DonationVault events");
-
-  contract.on("DonationMade", async (donor, causeId, amount, timestamp, event) => {
-    const decimals = await getDecimals(contract, provider);
+/**
+ * Handles the logic for indexing a donation and updating statistics in the database.
+ */
+async function processDonation(
+  donor: string,
+  causeId: bigint | number,
+  amount: bigint | number | string,
+  timestamp: bigint | number,
+  txHash: string,
+  vaultContract: ethers.Contract,
+  provider: any,
+  shouldBroadcast: boolean = true
+) {
+  try {
+    const decimals = await getDecimals(vaultContract, provider);
     const amountFormatted = ethers.formatUnits(amount, decimals);
     const amountDecimal = new Prisma.Decimal(amountFormatted);
     const causeIdNum = Number(causeId);
 
-    try {
-      await prisma.donation.upsert({
-        where: { txHash: event.transactionHash },
-        update: { ugfStatus: "confirmed" },
-        create: {
-          donor,
-          amount: amountDecimal,
-          txHash: event.transactionHash,
-          ugfStatus: "confirmed",
-          causeId: causeIdNum,
-          createdAt: new Date(Number(timestamp) * 1000),
-        },
-      });
+    // Check if this tx has already been indexed as confirmed
+    const existing = await prisma.donation.findUnique({
+      where: { txHash }
+    });
 
-      await prisma.donor.upsert({
-        where: { wallet: donor },
-        update: {
-          totalDonated: { increment: amountDecimal },
-          donationCount: { increment: 1 },
-          lastDonation: new Date(),
-        },
-        create: {
-          wallet: donor,
-          totalDonated: amountDecimal,
-          donationCount: 1,
-          firstDonation: new Date(),
-          lastDonation: new Date(),
-        },
-      });
+    if (existing && existing.ugfStatus === "confirmed") {
+      // Already fully indexed
+      return;
+    }
 
-      if (redis) {
-        await redis.del("leaderboard:all");
-      }
+    console.log(`[Indexer] Indexing donation: ${amountFormatted} USD from ${donor} for cause ${causeIdNum} (tx: ${txHash})`);
 
-      const [cause, totalAgg, donorRows] = await Promise.all([
-        prisma.cause.findUnique({ where: { id: causeIdNum } }),
-        prisma.donation.aggregate({
-          where: { causeId: causeIdNum },
-          _sum: { amount: true },
-        }),
-        prisma.donation.findMany({
-          where: { causeId: causeIdNum },
-          distinct: ["donor"],
-          select: { donor: true },
-        }),
-      ]);
+    await prisma.donation.upsert({
+      where: { txHash },
+      update: { ugfStatus: "confirmed" },
+      create: {
+        donor,
+        amount: amountDecimal,
+        txHash,
+        ugfStatus: "confirmed",
+        causeId: causeIdNum,
+        createdAt: new Date(Number(timestamp) * 1000),
+      },
+    });
 
+    await prisma.donor.upsert({
+      where: { wallet: donor },
+      update: {
+        totalDonated: { increment: amountDecimal },
+        donationCount: { increment: 1 },
+        lastDonation: new Date(),
+      },
+      create: {
+        wallet: donor,
+        totalDonated: amountDecimal,
+        donationCount: 1,
+        firstDonation: new Date(),
+        lastDonation: new Date(),
+      },
+    });
+
+    if (redis) {
+      await redis.del("leaderboard:all");
+    }
+
+    const [cause, totalAgg, donorRows] = await Promise.all([
+      prisma.cause.findUnique({ where: { id: causeIdNum } }),
+      prisma.donation.aggregate({
+        where: { causeId: causeIdNum },
+        _sum: { amount: true },
+      }),
+      prisma.donation.findMany({
+        where: { causeId: causeIdNum },
+        distinct: ["donor"],
+        select: { donor: true },
+      }),
+    ]);
+
+    if (shouldBroadcast) {
       broadcast({
         type: "new_donation",
         donor,
         causeId: causeIdNum,
         causeName: cause?.name ?? "Unknown",
         amount: amountFormatted,
-        txHash: event.transactionHash,
-        timestamp: new Date().toISOString(),
+        txHash,
+        timestamp: new Date(Number(timestamp) * 1000).toISOString(),
       });
 
       broadcast({
@@ -121,10 +139,89 @@ export function startDonationListener() {
       });
 
       broadcast({ type: "leaderboard_invalidate" });
-    } catch (err) {
-      console.error("[Indexer] DonationMade handler failed:", err);
     }
+  } catch (err) {
+    console.error(`[Indexer] Failed to process donation in DB (tx: ${txHash}):`, err);
+  }
+}
+
+/**
+ * Queries and indexes historical events from the last 1500 blocks.
+ */
+async function backfillPastEvents(contractAddress: string) {
+  try {
+    console.log("[Indexer] Starting background historical backfill (last 1500 blocks)...");
+    const publicProvider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+    const publicContract = new ethers.Contract(contractAddress, VAULT_ABI, publicProvider);
+
+    const events = await publicContract.queryFilter("DonationMade", -1500);
+    console.log(`[Indexer] Found ${events.length} historical events in block range.`);
+
+    for (const event of events) {
+      const e = event as any;
+      const donor = e.args[0] || e.args.donor;
+      const causeId = e.args[1] || e.args.causeId;
+      const amount = e.args[2] || e.args.amount;
+      const timestamp = e.args[3] || e.args.timestamp;
+      const txHash = e.transactionHash;
+
+      if (donor && causeId !== undefined && amount !== undefined && timestamp !== undefined && txHash) {
+        await processDonation(donor, causeId, amount, timestamp, txHash, publicContract, publicProvider, false);
+      }
+    }
+    console.log("[Indexer] Background historical backfill completed successfully.");
+  } catch (err: any) {
+    console.warn("[Indexer] Startup backfill failed:", err.message || err);
+  }
+}
+
+export function startDonationListener() {
+  const provider = getProvider();
+  const contract = new ethers.Contract(env.vaultAddress, VAULT_ABI, provider);
+
+  console.log("* Connected to Base Sepolia RPC");
+  console.log("* Listening for DonationVault events");
+
+  contract.on("DonationMade", async (donor, causeId, amount, timestamp, event) => {
+    // Robust extraction of transactionHash from callback arguments
+    let txHash: string | undefined;
+    if (event && typeof event === "object") {
+      if (event.log && typeof event.log === "object" && typeof event.log.transactionHash === "string") {
+        txHash = event.log.transactionHash;
+      } else if (typeof event.transactionHash === "string") {
+        txHash = event.transactionHash;
+      }
+    }
+    if (!txHash) {
+      // Fallback check on all parameters for transaction hash
+      for (const arg of [event, donor, causeId, amount, timestamp]) {
+        if (arg && typeof arg === "object") {
+          if (typeof arg.transactionHash === "string") {
+            txHash = arg.transactionHash;
+            break;
+          }
+          if (arg.log && typeof arg.log === "object" && typeof arg.log.transactionHash === "string") {
+            txHash = arg.log.transactionHash;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!txHash) {
+      console.error("[Indexer] DonationMade event received but transactionHash could not be resolved.");
+      return;
+    }
+
+    await processDonation(donor, causeId, amount, timestamp, txHash, contract, provider, true);
   });
+
+  // Start background backfill asynchronously
+  setTimeout(() => {
+    backfillPastEvents(env.vaultAddress).catch(err => {
+      console.error("[Indexer] Error triggering backfill:", err);
+    });
+  }, 1000);
 
   return contract;
 }
