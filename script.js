@@ -93,7 +93,7 @@ function initApp() {
                         walletType: 'metamask',
                     });
 
-                    listenForAccountChanges(window.ethereum);
+                    window.listenForAccountChanges(window.ethereum);
                     // Don't show toast or scroll — silent reconnect
                 }
             }

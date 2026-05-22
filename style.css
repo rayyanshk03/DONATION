@@ -379,6 +379,25 @@ body::before {
     background: #fcd34d;
     transform: translateY(-1px);
 }
+.ugc-zero-banner__cta--gasless {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+.ugc-zero-banner__cta--gasless:hover {
+    background: linear-gradient(135deg, #34d399, #059669);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+.ugc-zero-banner__cta--gasless:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
 .ugc-zero-banner__close {
     display: flex;
     align-items: center;
@@ -2113,4 +2132,24 @@ body::before {
     .wallet-balance-badge { margin-left: 0; width: 100%; flex-direction: row; justify-content: space-between; align-items: center; }
     .amount-label-row { flex-direction: column; gap: 0.2rem; }
 }
+
+/* Step indicator badge for merged approval + donation */
+.tx-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 9999px;
+    padding: 0.35rem 0.85rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.05);
+    animation: fadeIn 0.3s ease;
+}
+
 

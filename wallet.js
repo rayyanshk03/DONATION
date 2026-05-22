@@ -4,6 +4,8 @@
  * Notifies subscribers on state change.
  */
 
+
+
 // ─── UGC Token config ─────────────────────────────────────────────────────────
 // ⚠ Supports window.ENV (dynamic loader), process env, or safe hardcoded fallbacks.
 const UGC_TOKEN_ADDRESS = (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_UGC_TOKEN_ADDRESS)
@@ -48,6 +50,9 @@ const UGC_TOKEN_ABI = [
 async function fetchUgcData(provider, address) {
     const pillEl = document.getElementById('ugcBalancePill');
     if (!provider || !address) return;
+
+
+
     try {
         const token = new ethers.Contract(UGC_TOKEN_ADDRESS, UGC_TOKEN_ABI, provider);
         const [rawBalance, rawDecimals, rawAllowance] = await Promise.all([
@@ -73,11 +78,15 @@ async function fetchUgcData(provider, address) {
         if (pillEl) {
             pillEl.textContent   = `$${display}`;
             pillEl.style.display = 'inline-flex';
+            pillEl.style.borderColor = 'rgba(16, 185, 129, 0.28)';
+            pillEl.style.background = 'rgba(16, 185, 129, 0.12)';
+            pillEl.style.color = '#10b981';
         }
 
-        // Zero-balance guard
-        if (rawBalance === 0n) {
-            showZeroBalanceBanner();
+        // Low-balance or zero-balance guard
+        const minDonation = ethers.parseUnits('10', decimals);
+        if (rawBalance < minDonation) {
+            showZeroBalanceBanner(rawBalance === 0n);
         } else {
             hideZeroBalanceBanner();
         }
@@ -117,16 +126,93 @@ async function claimFaucetTokens(e) {
     window.open(faucetUrl, '_blank', 'noopener,noreferrer');
 }
 
-function showZeroBalanceBanner() {
+function showZeroBalanceBanner(isZero = true) {
     const banner = document.getElementById('ugcZeroBanner');
     if (!banner) return;
     
+    const msgEl = banner.querySelector('.ugc-zero-banner__msg');
+    if (msgEl) {
+        if (isZero) {
+            msgEl.textContent = 'You have no Mock USD tokens. Get Mock USD to start donating.';
+        } else {
+            msgEl.textContent = 'You have a low balance of Mock USD tokens. Get more Mock USD to donate.';
+        }
+    }
+
     const link = banner.querySelector('#ugcFaucetLink');
     if (link) {
         link.href = UGC_FAUCET_URL || '#';
         link.onclick = claimFaucetTokens;
     }
+
+    const gaslessBtn = banner.querySelector('#ugcClaimGaslessBtn');
+    if (gaslessBtn) {
+        gaslessBtn.onclick = claimMockUSDGaslessly;
+    }
+
     banner.classList.add('ugc-banner--visible');
+}
+async function claimMockUSDGaslessly(e) {
+    if (e) e.preventDefault();
+    const ctx = WalletContext.getState();
+    if (!ctx.isConnected || !ctx.signer || !ctx.address) {
+        showToast('Please connect your wallet first.');
+        alert('Please connect your wallet first.');
+        return;
+    }
+    
+    if (ctx.chainId !== TARGET_CHAIN_ID) {
+        showToast('Please switch to Base Sepolia network first.');
+        alert('Please switch to Base Sepolia network first.');
+        return;
+    }
+
+    const gaslessBtn = document.getElementById('ugcClaimGaslessBtn');
+    if (gaslessBtn) {
+        gaslessBtn.disabled = true;
+        gaslessBtn.innerHTML = 'Claiming... <span style="animation: spin 1s linear infinite; display: inline-block;">⚡</span>';
+    }
+
+    try {
+        showToast('Initiating gasless faucet claim...', 'info');
+
+        // Get token decimals dynamically, default to 18
+        const decimals = ctx.ugcDecimals || 18;
+        const amount = ethers.parseUnits('1000', decimals);
+        const tokenIface = new ethers.Interface(['function faucet(address to, uint256 amount)']);
+        const calldata = tokenIface.encodeFunctionData('faucet', [ctx.address, amount]);
+
+        // Call sendUGFDonation
+        await window.sendUGFDonation({
+            signer: ctx.signer,
+            provider: ctx.provider,
+            chainId: ctx.chainId,
+            to: UGC_TOKEN_ADDRESS,
+            data: calldata,
+            onQuote: (q) => window.showUGFPhase('quoting', { quoteId: q.quoteId }),
+            onSettle: () => window.showUGFPhase('settling'),
+            onExecute: (h) => window.showUGFPhase('executing', { hash: h })
+        });
+
+        window.showUGFPhase('confirmed');
+        showToast('Successfully claimed 1,000 MUSD gaslessly!', 'success');
+        
+        await new Promise(r => setTimeout(r, 1500));
+        window.hideUGFOverlay();
+
+        // Refresh balance
+        await fetchUgcData(ctx.provider, ctx.address);
+
+    } catch (err) {
+        console.error('[Faucet] Gasless claim failed:', err);
+        showToast(err.userMessage || err.message || 'Gasless claim failed.', 'error');
+        window.hideUGFOverlay();
+    } finally {
+        if (gaslessBtn) {
+            gaslessBtn.disabled = false;
+            gaslessBtn.innerHTML = 'Claim 1,000 MUSD Gaslessly ⚡';
+        }
+    }
 }
 
 function hideZeroBalanceBanner() {
@@ -540,3 +626,21 @@ window.closeWalletModal = closeWalletModal;
 window.connectMetaMask = connectMetaMask;
 window.connectWalletConnect = connectWalletConnect;
 window.connectCoinbase = connectCoinbase;
+window.listenForAccountChanges = listenForAccountChanges;
+
+// Enable clicking on the wallet badge to copy full address easily
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('walletStatus')?.addEventListener('click', async () => {
+        const ctx = WalletContext.getState();
+        if (ctx.isConnected && ctx.address) {
+            try {
+                await navigator.clipboard.writeText(ctx.address);
+                showToast('Wallet address copied to clipboard!', 'success');
+            } catch (err) {
+                console.error('Could not copy address:', err);
+                alert(`Your wallet address is:\n${ctx.address}`);
+            }
+        }
+    });
+});
+

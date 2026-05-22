@@ -146,8 +146,9 @@ async function ensureUGFAuth(client, signer) {
  *
  * @param {'quoting'|'settling'|'executing'|'confirmed'} phase
  * @param {object} [data] — optional data (quote info, tx hash, etc.)
+ * @param {string} [stepInfo] — optional step progress text (e.g. "Step 1 of 2: Token Approval")
  */
-function showUGFPhase(phase, data = {}) {
+function showUGFPhase(phase, data = {}, stepInfo = null) {
     const overlay   = document.getElementById('txPendingOverlay');
     const msg       = document.getElementById('txPendingMsg');
     const hint      = document.getElementById('txPendingHint');
@@ -156,12 +157,23 @@ function showUGFPhase(phase, data = {}) {
     const hashPlain = document.getElementById('txHashDisplay');
     const linkEl    = document.getElementById('txHashLink');
     const linkDisp  = document.getElementById('txHashLinkDisplay');
+    const stepBadge = document.getElementById('txStepBadge');
 
     if (!overlay) return;
 
     // Open overlay and lock scroll
     document.body.style.overflow = 'hidden';
     overlay.classList.add('tx-pending--open');
+
+    // Update the step badge if stepInfo is provided
+    if (stepBadge) {
+        if (stepInfo) {
+            stepBadge.textContent = stepInfo;
+            stepBadge.style.display = 'inline-flex';
+        } else {
+            stepBadge.style.display = 'none';
+        }
+    }
 
     // Update all UGF step indicators
     const steps = document.querySelectorAll('.ugf-step');
@@ -237,12 +249,17 @@ function hideUGFOverlay() {
         const linkDisp  = document.getElementById('txHashLinkDisplay');
         const msg       = document.getElementById('txPendingMsg');
         const hint      = document.getElementById('txPendingHint');
+        const stepBadge = document.getElementById('txStepBadge');
         if (hashRow)   hashRow.dataset.state = 'userop';
         if (label)     label.textContent     = 'Quote';
         if (hashPlain) hashPlain.textContent  = '—';
         if (linkDisp)  linkDisp.textContent   = '—';
         if (msg)       msg.textContent        = 'Preparing your gasless transaction…';
         if (hint)      hint.textContent       = '⏱ This usually takes 15–30 seconds';
+        if (stepBadge) {
+            stepBadge.textContent = '';
+            stepBadge.style.display = 'none';
+        }
     }, 320);
 }
 
