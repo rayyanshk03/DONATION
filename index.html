@@ -33,7 +33,7 @@
                 </svg>
             </a>
             <button class="ugc-zero-banner__cta ugc-zero-banner__cta--gasless" id="ugcClaimGaslessBtn">
-                Claim 1,000 MUSD Gaslessly ⚡
+                Claim 1,000 MUSD (0 ETH Gas) ⚡
             </button>
 
             <button class="ugc-zero-banner__close" aria-label="Dismiss" onclick="this.closest('#ugcZeroBanner').classList.remove('ugc-banner--visible')">
@@ -105,8 +105,8 @@
                 </div>
                 <div class="tx-step-badge" id="txStepBadge" style="display: none;"></div>
 
-                <h2 class="tx-pending-title">Your gasless transaction is in progress…</h2>
-                <p class="tx-pending-msg" id="txPendingMsg">Preparing your gasless transaction…</p>
+                <h2 class="tx-pending-title">Your transaction is in progress…</h2>
+                <p class="tx-pending-msg" id="txPendingMsg">Preparing your transaction…</p>
 
                 <!-- Two-state hash row:
                      State A — Quote/Settlement ID (no link, dimmed)   [data-state="userop"]
@@ -136,7 +136,7 @@
                         <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
                         <path d="M11 7h2v4h-2z"/>
                     </svg>
-                    Gas fee: $0.00 &mdash; paid by UGF
+                    Gas fee: Paid in Mock USD (0 ETH)
                 </div>
 
                 <p class="tx-pending-hint" id="txPendingHint">⏱ This usually takes 15–30 seconds</p>
@@ -161,7 +161,7 @@
                         <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
                         <path d="M11 7h2v4h-2z"/>
                     </svg>
-                    Gas fee paid: $0.00
+                    Gas fee: Paid in Mock USD (0 ETH)
                 </div>
 
                 <!-- TX hash -->
@@ -270,7 +270,7 @@
     <main class="hero" id="hero">
         <div class="hero-content">
             <div class="hero-badge">🌍 Powered by Web3</div>
-            <div class="hero-badge hero-badge--gasfree">⛽ 100% gas-free donations powered by UGF</div>
+            <div class="hero-badge hero-badge--gasfree">⛽ ETH-Free donations powered by UGF</div>
             <h1 class="headline">Donate crypto, <br/><span class="highlight">change lives</span></h1>
             <p class="subheading">The most transparent and efficient way to fund causes you care about using Mock USD.</p>
             <button class="connect-btn" id="connectWalletBtn">
@@ -287,7 +287,7 @@
             <div class="hero-trust">
                 <span>🔒 Non-custodial</span>
                 <span>·</span>
-                <span>⛽ Zero gas fees</span>
+                <span>⛽ Gas Paid in Mock USD</span>
                 <span>·</span>
                 <span>🌐 Decentralized</span>
                 <span>·</span>
@@ -302,7 +302,7 @@
                         Mock USD
                     </button>
                     <div class="ugc-tooltip" id="ugcTooltip" role="tooltip">
-                        You pay zero gas. Donations are made in Mock USD — no ETH required.
+                        Gas fees are paid in Mock USD — no native ETH required.
                         <span class="ugc-tooltip-arrow"></span>
                     </div>
                 </span>
@@ -460,7 +460,7 @@
                     <path d="M3 22h18M4 9h1m-1 4h1m14-4h1m-1 4h1M7 22V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v18"/>
                     <path d="M11 7h2v4h-2z"/>
                 </svg>
-                Gas fee: $0.00 &mdash; covered by the platform
+                Gas fee: Paid in Mock USD (0 ETH)
             </div>
 
             <!-- Donate / Approve button -->

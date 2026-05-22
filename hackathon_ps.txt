@@ -1,0 +1,16 @@
+Hackathon Problem Statement
+Build a beginner-friendly dApp on Base Sepolia that uses UGF to let users pay gas with Mock USD instead of needing ETH in their wallet. Your app should do something real and useful. NFT minter, donation flow, token send, badge claim -- anything where a user takes an onchain action and UGF handles the gas side so they never touch ETH. Use the UGF Testnet SDK or React-UGF to build your integration. The goal is simple: take something that normally breaks because of gas and make it work. Build apps that make onchain actions feel invisible to the user, and bring Web3 UX closer to something anyone can actually use.
+What Is UGF
+UGF is an execution layer for remote transactions. It lets users and AI agents act on any blockchain without depending on each chain's gas token.
+Figure 1: UGF Remote Transactions Normally, to do anything on Ethereum, you need ETH sitting in your wallet just to pay for the action. UGF removes that requirement. The user pays with Mock USD. UGF handles the rest and gets the transaction done. No paymasters. No bundlers. No ERC-4337. Just quote, settle, execute, confirm.
+1
+
+Suggested Tracks
+· Payments: donations, checkout, subscriptions · Minting: NFT minters, tickets, badges, certificates · Wallet and Agents: token send, reward claim, simple agentic wallet
+Resources
+Docs https://universalgasframework.com/docs Testnet Quickstart https://universalgasframework.com/docs/testnet Faucet (get Mock USD on Base Sepolia) https://universalgasframework.com/faucets SDK on npm https://www.npmjs.com/package/@tychilabs/ugf-testnet-js GitHub https://github.com/TychiWallet/ugf-testnet-js React SDK on npm https://www.npmjs.com/package/@tychilabs/react-ugf
+Contact
+Mail rishi@tychilabs.com yash@tychilabs.com X https://x.com/TychiLabs Telegram https://t.me/TychiCommunity LinkedIn https://www.linkedin.com/company/tychi-limited
+2
+
+

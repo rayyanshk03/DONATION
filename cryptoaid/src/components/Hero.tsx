@@ -54,7 +54,7 @@ export default function Hero({ totalDonated, totalDonors, avgGift, onConnectWall
           >
             Give Globally. <br />
             <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent glow-text-blue">
-              Pay Zero Gas.
+              Pay Gas in Mock USD.
             </span>
           </motion.h1>
 
@@ -64,7 +64,7 @@ export default function Hero({ totalDonated, totalDonors, avgGift, onConnectWall
             transition={{ duration: 0.8, delay: 0.2 }}
             className="mt-6 text-base sm:text-lg md:text-xl text-slate-400 font-normal leading-relaxed max-w-2xl mx-auto"
           >
-            The world's first frictionless, gasless donation platform. No gas fees, no ETH requirements, no complex bridges. Make your full impact felt with Universal Gas Facilitation (UGF).
+            The world's first frictionless, ETH-free donation platform. Gas is paid using Mock USD (UGC) — no ETH required. Make your full impact felt with Universal Gas Facilitation (UGF).
           </motion.p>
         </div>
 
@@ -77,7 +77,7 @@ export default function Hero({ totalDonated, totalDonors, avgGift, onConnectWall
         >
           <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/5 px-4 py-2.5 text-slate-300">
             <Zap className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400/20" />
-            <span>Zero Gas Fees</span>
+            <span>Gas Paid in UGC</span>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/5 px-4 py-2.5 text-slate-300">
             <Coins className="h-3.5 w-3.5 text-blue-400" />
@@ -116,7 +116,7 @@ export default function Hero({ totalDonated, totalDonors, avgGift, onConnectWall
                 ${totalDonated.toLocaleString()}
               </motion.div>
               <span className="text-[10px] text-emerald-400 font-semibold font-mono mt-0.5">
-                $0.00 Gas Spent
+                Gas Paid in UGC (0 ETH)
               </span>
             </div>
 

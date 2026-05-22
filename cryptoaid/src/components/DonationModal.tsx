@@ -52,6 +52,7 @@ export default function DonationModal({
   const [completionTxHash, setCompletionTxHash] = useState<string>("");
   const [confetti, setConfetti] = useState<Array<{ id: number; left: number; color: string; duration: number; size: number }>>([]);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [ugfGasFee, setUgfGasFee] = useState<string>("0.0025");
 
   const presets = [10, 25, 50, 100];
   const finalAmount = useCustom ? (parseFloat(customAmountStr) || 0) : selectedAmount;
@@ -157,6 +158,7 @@ export default function DonationModal({
           data: calldata,
           onQuote: (quote) => {
             setUgfStepStatus("quoting");
+            setUgfGasFee(quote.gasCostUsd);
           },
           onSettle: () => {
             setUgfStepStatus("settling");
@@ -219,6 +221,7 @@ export default function DonationModal({
             data: calldata,
             onQuote: (quote) => {
               setUgfStepStatus("quoting");
+              setUgfGasFee(quote.gasCostUsd);
             },
             onSettle: () => {
               setUgfStepStatus("settling");
@@ -250,6 +253,7 @@ export default function DonationModal({
             data: approveCalldata,
             onQuote: (quote) => {
               setUgfStepStatus("quoting");
+              setUgfGasFee(quote.gasCostUsd);
             },
             onSettle: () => {
               setUgfStepStatus("settling");
@@ -294,6 +298,7 @@ export default function DonationModal({
             data: calldata,
             onQuote: (quote) => {
               setUgfStepStatus("quoting");
+              setUgfGasFee(quote.gasCostUsd);
             },
             onSettle: () => {
               setUgfStepStatus("settling");
@@ -579,20 +584,25 @@ export default function DonationModal({
                     </div>
 
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Gas Sponsoring</span>
+                      <span className="text-slate-400">Gas Abstraction</span>
                       <span className="text-emerald-400 font-bold font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 uppercase">
-                        <Zap className="h-3 w-3 fill-emerald-400/20" /> Sponsored Vias UGF
+                        <Zap className="h-3 w-3 fill-emerald-400/20" /> Paid in UGC via UGF
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-400 border-t border-white/5 pt-2">
-                      <span>Estimated Network Fee</span>
-                      <span className="font-mono text-slate-500 line-through">$4.12 ETH</span>
+                      <span>Estimated Network Fee (ETH)</span>
+                      <span className="font-mono text-slate-500 line-through">0.0015 ETH ($4.12)</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                      <span>Final Cost to You</span>
-                      <span className="text-blue-400 font-mono font-extrabold">${finalAmount.toFixed(2)} UGC</span>
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span>UGF Gas Fee (UGC)</span>
+                      <span className="font-mono text-emerald-400 font-semibold">~$0.0025 UGC</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300 border-t border-white/5 pt-2">
+                      <span>Final Cost (Zero ETH)</span>
+                      <span className="text-blue-400 font-mono font-extrabold">${(finalAmount + 0.0025).toFixed(4)} UGC</span>
                     </div>
                   </div>
 
@@ -661,6 +671,15 @@ export default function DonationModal({
                     ) : (
                       <Zap className="h-8 w-8 text-emerald-400 fill-emerald-400/20 animate-neon-pulse" />
                     )}
+                  </div>
+
+                  {/* Active Campaign Detail Banner */}
+                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 max-w-sm mx-auto shadow-inner">
+                    <p className="text-[10px] text-slate-400 font-mono tracking-wider uppercase mb-1">Supporting Campaign</p>
+                    <h4 className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
+                      <span>{campaign.icon}</span>
+                      <span className="truncate">{campaign.title}</span>
+                    </h4>
                   </div>
 
                   {/* Unified Steps Status Bar */}
@@ -787,9 +806,9 @@ export default function DonationModal({
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Gas Fee Saved</span>
+                      <span>UGF Network Fee (Paid in UGC)</span>
                       <span className="text-purple-400 font-bold font-mono flex items-center gap-1">
-                        <Zap className="h-3.5 w-3.5 animate-pulsing text-purple-400" /> $4.12 ETH Sponsored
+                        <Zap className="h-3.5 w-3.5 text-purple-400 animate-pulse" /> ${ugfGasFee} UGC (Zero ETH)
                       </span>
                     </div>
 

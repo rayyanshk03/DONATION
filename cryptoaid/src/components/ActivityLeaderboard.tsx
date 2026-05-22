@@ -68,11 +68,11 @@ export default function ActivityLeaderboard({ donations, leaders, onDonorClick }
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-[10px] text-emerald-400 font-semibold font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                      <Zap className="h-2.5 w-2.5 fill-emerald-400/20" /> GAS $0
+                    <span className="text-[10px] text-rose-400 font-semibold font-mono bg-rose-500/10 px-2 py-0.5 rounded flex items-center gap-0.5 border border-rose-500/10 justify-end mb-1">
+                      ⛽ -0.0025 UGC Gas
                     </span>
-                    <span className="text-[9px] text-slate-500 font-mono block mt-1">
-                      {tx.timestamp}
+                    <span className="text-[9px] text-slate-400 font-mono block mt-1">
+                      0 ETH gas · {tx.timestamp}
                     </span>
                   </div>
                 </motion.div>
@@ -156,7 +156,7 @@ export default function ActivityLeaderboard({ donations, leaders, onDonorClick }
                           <span className="text-xs shrink-0 select-none">{namePrefix}</span>
                         </div>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          {leader.donationsCount} gasless transactions sponsored
+                          {leader.donationsCount} transactions (UGC Gas)
                         </p>
                       </div>
                     </div>

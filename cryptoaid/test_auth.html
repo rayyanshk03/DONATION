@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UGF Auth Debugger</title>
+  <style>
+    body {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #3b82f6;
+      border-bottom: 2px solid #1e293b;
+      padding-bottom: 0.5rem;
+    }
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    #console {
+      background-color: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: monospace;
+      white-space: pre-wrap;
+      height: 400px;
+      overflow-y: auto;
+      margin-top: 1.5rem;
+      box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.6);
+    }
+    .log-info { color: #38bdf8; }
+    .log-success { color: #4ade80; }
+    .log-warn { color: #facc15; }
+    .log-error { color: #f87171; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>UGF Authentication Diagnostics</h1>
+  <p>Use this utility to diagnose the <code>Unauthorized — token expired or invalid</code> error directly in your browser with MetaMask.</p>
+  <button id="runBtn">Start Diagnostic Test</button>
+  <div id="console">Click "Start Diagnostic Test" to begin...</div>
+
+  <!-- Include Ethers.js v6 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.0/ethers.umd.min.js"></script>
+
+  <script>
+    const logDiv = document.getElementById('console');
+    const runBtn = document.getElementById('runBtn');
+
+    function log(message, type = 'info') {
+      const span = document.createElement('span');
+      span.className = `log-${type}`;
+      span.textContent = `[${new Date().toLocaleTimeString()}] ${message}\n`;
+      logDiv.appendChild(span);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    runBtn.addEventListener('click', async () => {
+      logDiv.innerHTML = '';
+      log('Starting UGF Auth Diagnostics...', 'info');
+
+      if (!window.ethereum) {
+        log('Error: No window.ethereum detected. Make sure MetaMask is installed and unlocked.', 'error');
+        return;
+      }
+
+      try {
+        // 1. Initialize Ethers
+        log('Connecting to browser wallet...', 'info');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        log(`Connected Account: ${address}`, 'success');
+
+        const network = await provider.getNetwork();
+        log(`Network Chain ID: ${network.chainId} (Name: ${network.name})`, 'info');
+
+        const UGF_ENDPOINT = "https://gateway.universalgasframework.com";
+        log(`UGF Gateway Endpoint: ${UGF_ENDPOINT}`, 'info');
+
+        // 2. Fetch Nonce
+        const nonceUrl = `${UGF_ENDPOINT}/auth/nonce?address=${address}`;
+        log(`Fetching nonce from: ${nonceUrl}`, 'info');
+        
+        const nonceRes = await fetch(nonceUrl);
+        log(`Nonce Response Status: ${nonceRes.status} ${nonceRes.statusText}`, nonceRes.ok ? 'success' : 'error');
+        
+        if (!nonceRes.ok) {
+          const errText = await nonceRes.text();
+          log(`Failed to fetch nonce: ${errText}`, 'error');
+          return;
+        }
+
+        const nonceData = await nonceRes.json();
+        const nonce = nonceData.nonce;
+        log(`Retrieved Nonce: "${nonce}"`, 'success');
+
+        // 3. Generate Signature
+        const messageToSign = `Sign in to UGF\nNonce: ${nonce}`;
+        log('Prompting wallet to sign message...', 'info');
+        log(`Message being signed:\n---\n${messageToSign}\n---`, 'info');
+
+        let signature;
+        try {
+          signature = await signer.signMessage(messageToSign);
+          log(`Signature successfully generated: ${signature.slice(0, 20)}...${signature.slice(-20)}`, 'success');
+        } catch (sigErr) {
+          log(`User rejected or failed signature request: ${sigErr.message}`, 'error');
+          return;
+        }
+
+        // 4. Verify Signature Locally
+        try {
+          const recovered = ethers.verifyMessage(messageToSign, signature);
+          log(`Local Signature Verification: Recovered address is ${recovered}`, recovered.toLowerCase() === address.toLowerCase() ? 'success' : 'warn');
+        } catch (recErr) {
+          log(`Failed to verify signature locally: ${recErr.message}`, 'warn');
+        }
+
+        // 5. Post to Wallet Login
+        const loginUrl = `${UGF_ENDPOINT}/auth/wallet-login`;
+        log(`Sending POST request to login: ${loginUrl}`, 'info');
+        
+        const requestBody = { address, signature, nonce };
+        log(`Payload: ${JSON.stringify(requestBody)}`, 'info');
+
+        const loginRes = await fetch(loginUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        log(`Login Response Status: ${loginRes.status} ${loginRes.statusText}`, loginRes.ok ? 'success' : 'error');
+
+        const resText = await loginRes.text();
+        log(`Response body:\n${resText}`, loginRes.ok ? 'success' : 'error');
+
+        if (loginRes.ok) {
+          const resData = JSON.parse(resText);
+          log('Authentication fully successful!', 'success');
+          log(`JWT Token: ${resData.token.slice(0, 15)}...`, 'success');
+        } else {
+          log('Login failed on UGF Gateway server side.', 'error');
+        }
+
+      } catch (err) {
+        log(`Unexpected exception during diagnostics: ${err.message}`, 'error');
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

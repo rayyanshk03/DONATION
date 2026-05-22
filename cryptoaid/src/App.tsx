@@ -5,7 +5,7 @@ import CauseGrid from "./components/CauseGrid";
 import DonationModal from "./components/DonationModal";
 import ActivityLeaderboard from "./components/ActivityLeaderboard";
 import { Campaign, Donation, Leader } from "./types";
-import { formatAddress } from "./mockData";
+import { formatAddress, INITIAL_CAMPAIGNS, INITIAL_LEADERS, INITIAL_DONATIONS } from "./mockData";
 import { AlertCircle, HelpCircle, Info, Heart, Zap, Check, RefreshCw, KeyRound, ArrowUpRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ethers } from "ethers";
@@ -48,7 +48,7 @@ export default function App() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/causes`);
       const data = await res.json();
-      if (data.causes) {
+      if (data.causes && data.causes.length > 0) {
         const mapped: Campaign[] = data.causes.map((cause: any) => {
           let imageGradient = "from-blue-500/20 via-blue-950/20 to-slate-950";
           let tagColor = "text-blue-400 bg-blue-950/40 border-blue-500/20";
@@ -83,9 +83,13 @@ export default function App() {
           };
         });
         setCampaigns(mapped);
+      } else {
+        console.warn("Backend causes list empty, falling back to mock campaigns.");
+        setCampaigns(INITIAL_CAMPAIGNS);
       }
     } catch (err) {
-      console.error("Failed to fetch campaigns:", err);
+      console.error("Failed to fetch campaigns, falling back to mock campaigns:", err);
+      setCampaigns(INITIAL_CAMPAIGNS);
     }
   };
 
@@ -94,7 +98,7 @@ export default function App() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/leaderboard`);
       const data = await res.json();
-      if (data.leaderboard) {
+      if (data.leaderboard && data.leaderboard.length > 0) {
         const mapped: Leader[] = data.leaderboard.map((item: any, idx: number) => ({
           rank: idx + 1,
           address: item.wallet,
@@ -103,9 +107,12 @@ export default function App() {
           avatarSeed: (idx + 1).toString(),
         }));
         setLeaders(mapped);
+      } else {
+        setLeaders(INITIAL_LEADERS);
       }
     } catch (err) {
-      console.error("Failed to fetch leaderboard:", err);
+      console.error("Failed to fetch leaderboard, falling back to mock leaders:", err);
+      setLeaders(INITIAL_LEADERS);
     }
   };
 
@@ -114,7 +121,7 @@ export default function App() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/donations/feed`);
       const data = await res.json();
-      if (data.donations) {
+      if (data.donations && data.donations.length > 0) {
         const mapped: Donation[] = data.donations.map((tx: any) => ({
           id: tx.id,
           donor: tx.donor,
@@ -125,9 +132,12 @@ export default function App() {
           hash: tx.txHash,
         }));
         setDonations(mapped);
+      } else {
+        setDonations(INITIAL_DONATIONS);
       }
     } catch (err) {
-      console.error("Failed to fetch donations feed:", err);
+      console.error("Failed to fetch donations feed, falling back to mock feed:", err);
+      setDonations(INITIAL_DONATIONS);
     }
   };
 
@@ -433,7 +443,7 @@ export default function App() {
                 <div>
                   <p className="text-sm font-bold text-white font-sans">Low Mock USD Balance</p>
                   <p className="text-xs text-slate-400 mt-0.5 leading-relaxed font-light">
-                    You hold <span className="text-white font-medium font-mono">${walletBalance.toFixed(2)} UGC</span>. Claim testnet tokens to start sponsoring campaigns gaslessly.
+                    You hold <span className="text-white font-medium font-mono">${walletBalance.toFixed(2)} UGC</span>. Claim testnet tokens to start sponsoring campaigns with 0 ETH gas (gas paid in UGC).
                   </p>
                 </div>
               </div>
@@ -444,7 +454,7 @@ export default function App() {
                 className="shrink-0 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-bold px-5 py-2.5 text-xs transition-all cursor-pointer shadow-lg shadow-yellow-500/10"
               >
                 <Zap className="h-3.5 w-3.5 fill-slate-950/20" />
-                <span>{isFauceting ? "Claiming..." : "Claim 1,000 MUSD Gaslessly ⚡"}</span>
+                <span>{isFauceting ? "Claiming..." : "Claim 1,000 MUSD (0 ETH Gas) ⚡"}</span>
               </button>
             </motion.div>
           </div>
@@ -475,9 +485,9 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-lg font-bold text-white">Gasless Faucet Claim</h4>
+                  <h4 className="text-lg font-bold text-white">UGC Faucet Claim</h4>
                   <p className="text-xs text-slate-400 leading-relaxed font-light">
-                    Sponsoring faucet transaction variables through UGF Relayers...
+                    Relaying faucet transaction via UGF with gas paid in UGC (0 ETH)...
                   </p>
                 </div>
 
@@ -565,7 +575,7 @@ export default function App() {
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono font-bold">1</span>
                       <div>
                         <p className="font-bold text-white font-mono">Sign Your Permit</p>
-                        <p className="text-slate-400">Crypographically sign an off-chain spending allowance. Fast, secure, and 100% free.</p>
+                        <p className="text-slate-400">Cryptographically sign an off-chain spending allowance. Fast, secure, and no ETH gas required.</p>
                       </div>
                     </div>
 
@@ -573,7 +583,7 @@ export default function App() {
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono font-bold">2</span>
                       <div>
                         <p className="font-bold text-white font-mono">Relay Sponsored Dispatch</p>
-                        <p className="text-slate-400">The platform's UGF relayer transmits your donation directly to the smart contracts, full-covering gas expenses.</p>
+                        <p className="text-slate-400">The UGF relayer executes the on-chain transaction, paying the native ETH gas while deducting the equivalent gas cost in Mock USD (UGC).</p>
                       </div>
                     </div>
                   </div>
@@ -607,7 +617,7 @@ export default function App() {
                         <div className="h-6 w-6 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-mono font-bold flex items-center justify-center">✔</div>
                         <span className="text-xs text-slate-300 font-mono">UGF Gas Relaying Engine</span>
                       </div>
-                      <span className="text-[10.5px] text-emerald-400 font-semibold font-mono uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded">Sponsoring Gas</span>
+                      <span className="text-[10.5px] text-emerald-400 font-semibold font-mono uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded">Paid in UGC (0 ETH)</span>
                     </div>
 
                     <div className="p-3.5 rounded-xl bg-[#0c0c17]/90 border border-white/5 flex items-center justify-between">
@@ -651,7 +661,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-300">CryptoAid</span>
               <span className="text-slate-600">|</span>
-              <span>Gasless Web3 Sponsorship Network v1.0</span>
+              <span>0-ETH Web3 Sponsorship Network v1.0</span>
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-slate-400">

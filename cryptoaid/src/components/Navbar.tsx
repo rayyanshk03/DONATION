@@ -124,7 +124,7 @@ export default function Navbar({
                   {/* Gasless micro badge */}
                   <div className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 border border-emerald-500/10">
                     <Zap className="h-2.5 w-2.5 text-emerald-400 fill-emerald-400/20" />
-                    <span>ZERO GAS</span>
+                    <span>0 ETH GAS</span>
                   </div>
 
                   {/* Balance Badge */}
@@ -166,7 +166,7 @@ export default function Navbar({
                         <div className="px-2.5 py-1 text-slate-400 mb-1">
                           <p className="font-mono text-[10px] tracking-wider uppercase text-slate-500">Universal Gas Wallet</p>
                           <p className="text-emerald-400 font-semibold mt-0.5 flex items-center gap-1">
-                            <Check className="h-3 w-3" /> Gas Fees Sponsored
+                            <Check className="h-3 w-3" /> Gas Paid in UGC (0 ETH)
                           </p>
                         </div>
 

@@ -217,7 +217,7 @@ function showUGFPhase(phase, data = {}, stepInfo = null) {
 
         case 'confirmed':
             if (msg) msg.textContent = 'Confirmed on-chain! ✓';
-            if (hint) hint.textContent = 'Gas fee: $0.00 — paid by UGF';
+            if (hint) hint.textContent = 'Gas fee: Paid in Mock USD (0 ETH)';
             break;
     }
 }

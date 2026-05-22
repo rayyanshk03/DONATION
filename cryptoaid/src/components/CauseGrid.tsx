@@ -15,10 +15,10 @@ export default function CauseGrid({ campaigns, onDonateClick, walletConnected, o
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12" id="campaigns-grid-section">
       <div className="flex flex-col items-center mb-12">
         <h2 className="text-3xl font-extrabold tracking-tight text-white font-sans text-center">
-          Active Gasless Campaigns
+          Active UGC-Gas Campaigns
         </h2>
         <p className="text-slate-400 mt-2 text-center text-sm md:text-base max-w-md">
-          Select an active campaign to trigger a gasless EIP-2612 donation transaction.
+          Select an active campaign to trigger a donation paid in Mock USD (0 ETH gas).
         </p>
       </div>
 
@@ -102,7 +102,7 @@ export default function CauseGrid({ campaigns, onDonateClick, walletConnected, o
                   id={`donate-btn-${camp.id}`}
                 >
                   <Zap className="h-4 w-4 text-emerald-400 fill-emerald-400/20 group-hover:text-white transition-colors" />
-                  <span>Donate Gasless</span>
+                  <span>Donate (UGC Gas)</span>
                 </button>
               </div>
             </motion.div>
