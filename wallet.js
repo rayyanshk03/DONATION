@@ -114,7 +114,6 @@ async function claimFaucetTokens(e) {
         alert('Please switch to Base Sepolia network first.');
         return;
     }
-
     const faucetUrl = UGC_FAUCET_URL;
     if (!faucetUrl || faucetUrl.includes('your-swap-or-faucet-url')) {
         showToast('Mock USD faucet is not configured yet.', 'error');

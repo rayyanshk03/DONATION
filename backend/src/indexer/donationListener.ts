@@ -40,7 +40,7 @@ function getProvider() {
       console.warn("[RPC] WebSocket connection failed. Falling back to HTTP RPC.", err);
     }
   }
-  return new ethers.JsonRpcProvider(env.rpcUrl);
+  return new ethers.JsonRpcProvider(env.rpcUrl, 84532, { staticNetwork: ethers.Network.from(84532) });
 }
 
 /**
@@ -151,7 +151,11 @@ async function processDonation(
 async function backfillPastEvents(contractAddress: string) {
   try {
     console.log("[Indexer] Starting background historical backfill (last 1500 blocks)...");
-    const publicProvider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+    const publicProvider = new ethers.JsonRpcProvider(
+      "https://sepolia.base.org",
+      84532,
+      { staticNetwork: ethers.Network.from(84532) }
+    );
     const publicContract = new ethers.Contract(contractAddress, VAULT_ABI, publicProvider);
 
     const events = await publicContract.queryFilter("DonationMade", -1500);

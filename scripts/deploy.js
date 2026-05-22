@@ -26,13 +26,13 @@ async function main() {
   console.log(`💰  Balance:  ${ethers.formatEther(balance)} ETH\n`);
 
   // ── 1. Use Official UGF TYI_MOCK_USD ────────────────────────────────────────
-  const mockUsdAddr = "0x27DC1C167AeF232bb1e21073304B526726a8727e";
+  const mockUsdAddr = "0x1eDa37f016bDA3013de7A49e0fb4348c574C1BEf";
   console.log(`✅  Using official TYI_MOCK_USD: ${mockUsdAddr}`);
 
   // ── 2. Deploy DonationVault ────────────────────────────────────────────────
   console.log("🔨  Deploying DonationVault...");
   const vaultArtifact = JSON.parse(
-    fs.readFileSync("./contracts/artifacts/contracts/contracts/DonationVault.sol/DonationVault.json", "utf8")
+    fs.readFileSync("./contracts/artifacts/contracts/DonationVault.sol/DonationVault.json", "utf8")
   );
   const Vault = new ethers.ContractFactory(vaultArtifact.abi, vaultArtifact.bytecode, deployer);
   const vault = await Vault.deploy();

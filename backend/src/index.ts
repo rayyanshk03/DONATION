@@ -1,3 +1,4 @@
+// Backend entry point
 import http from "http";
 import express from "express";
 import { env } from "./config/env.js";
@@ -10,6 +11,8 @@ import donationsRoutes from "./routes/donations.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import analyticsRoutes from "./routes/analytics.js";
 import healthRoutes from "./routes/health.js";
+import faucetRoutes from "./routes/faucet.js";
+import ugfRoutes from "./routes/ugf.js";
 
 const app = express();
 
@@ -22,7 +25,7 @@ app.use((req, res, next) => {
   } else {
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
@@ -43,6 +46,8 @@ app.use("/api", donationsRoutes);
 app.use("/api", leaderboardRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api", healthRoutes);
+app.use("/api", faucetRoutes);
+app.use("/api", ugfRoutes);
 
 const server = http.createServer(app);
 initWebsocket(server);
