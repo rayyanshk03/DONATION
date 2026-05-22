@@ -1,137 +1,236 @@
-# CryptoAid — Gasless Donation Platform
+# CryptoAid — Premium Gasless Donation Platform (Base Sepolia)
 
-CryptoAid is a gasless Web3 donation app that lets users donate Mock USD without holding ETH. The frontend uses the official **UGF Testnet SDK** to authenticate, quote, settle, execute, and confirm transactions, while a backend indexer stores donation data and pushes live updates.
+CryptoAid is a gaming-tier, fully on-chain Web3 donation dApp that enables users to support global charity causes using **TYI_MOCK_USD** (the official UGF Testnet payment token) without needing to hold native gas tokens like Ether (ETH). 
 
-## How the system works
+The platform features a stunning dark-theme glassmorphic React frontend backed by an event indexer server. Gasless sponsorship is powered by the **Universal Gas Framework (UGF) SDK**, featuring smart allowance-based routing, secure cryptographic permits, and robust allowance propagation checking.
 
-1. **Frontend (static HTML/JS)**  
-   - `index.html` + `wallet.js`, `donate.js`, `ugf.js`, `realtime.js` render the UI and connect wallets via `ethers.js`.  
-   - When a user donates, the app creates an ERC‑20 permit (if supported) or performs a gasless approve via UGF, then uses the **UGF Testnet SDK** to run the quote → settle → execute → confirm lifecycle.  
-   - The donation call targets the `DonationVault` contract. UGF pays gas in Mock USD, so the user spends **no ETH**.
+---
 
-2. **Smart contracts (Base Sepolia testnet)**  
-   - `MockUSD.sol`: ERC‑20 test token with faucet + EIP‑2612 permit.  
-   - `DonationVault.sol`: Holds cause list and forwards donated Mock USD to each cause wallet, emitting `DonationMade` events.
+## How the Platform Works
 
-3. **Backend (Express + Prisma + WebSocket)**  
-   - Listens to `DonationMade` events via RPC and stores them in Postgres.  
-   - Updates donor stats, caches leaderboard in Redis (optional), and broadcasts live updates over `/ws`.  
-   - REST endpoints power the UI: `/api/causes`, `/api/donations/feed`, `/api/leaderboard`, `/api/analytics/overview`.
+CryptoAid operates on an integrated architectural stack connecting frontend, backend, and the EVM blockchain.
 
-## Project structure
+```mermaid
+graph TB
+    subgraph Frontend["React Frontend (cryptoaid/)"]
+        APP[App.tsx — Core App]
+        MODAL[DonationModal.tsx — Smart Flow]
+        WEB3[web3Service.ts — UGF SDK Layer]
+        NAV[Navbar.tsx — Dynamic Wallet]
+        CAUSE[CauseGrid.tsx — Visual Explorer]
+        INDEXCSS[index.css — Styling System]
+    end
 
-- `index.html`, `*.js`, `style.css` — frontend (static site)
-- `env.js` — frontend runtime config (loaded before scripts)
-- `backend/` — Express API, WebSocket server, Prisma schema
-- `contracts/` — Hardhat project with smart contracts
+    subgraph Backend["Indexer & API Backend (backend/)"]
+        API[Express REST API]
+        DB[(PostgreSQL Database)]
+        PRISMA[Prisma ORM Layer]
+        INDEXER[DonationMade Event Listener]
+        WS[WebSocket Live Updates]
+    end
 
-## Installation (runs on Windows/macOS/Linux)
+    subgraph Blockchain["Base Sepolia Network (Chain 84532)"]
+        VAULT[DonationVault.sol — Smart Contract]
+        MUSD[MockUSD.sol — ERC-20 + EIP-2612]
+        UGFSVC[UGF Gateway Relayer]
+    end
 
-### Prerequisites
+    APP --> NAV & CAUSE & MODAL
+    MODAL -->|Dispatch Tx| WEB3
+    WEB3 -->|Gas Quote & Pay| UGFSVC
+    UGFSVC -->|Submit Sponsored Tx| VAULT
+    VAULT -->|Log Event| INDEXER
+    INDEXER -->|Upsert Record| PRISMA --> DB
+    INDEXER -->|Push Event| WS --> APP
+    API -->|Fetch Leaderboard & Feed| PRISMA
+    APP -->|API Queries| API
+```
 
-- **Node.js 18+** (20 recommended) and **npm**
-- **PostgreSQL** (required for backend)
-- **Redis** (optional, enables leaderboard caching)
-- A **wallet** (MetaMask/WalletConnect) with Base Sepolia testnet access
-- **UGF Testnet SDK** access (no API key required — wallet signature auth is used)
+### Dynamic Gas Abstraction Lifecycle
+The user never pays native network fees (gas). Transactions are processed through one of three highly optimized routes depending on wallet state and contract configurations:
 
-### 1) Clone and install dependencies
+1. **Flow A: Pre-authorized (Direct Transfer)**
+   If a user has already granted sufficient `TYI_MOCK_USD` allowance to the `DonationVault` contract, the frontend skips approval steps entirely and executes a single sponsored UGF transaction to `donate(causeId, amount)`.
+2. **Flow B: Single-Transaction Permit (EIP-2612)**
+   If allowance is insufficient and the wallet supports EIP-2612 permit signatures, the app requests a single off-chain cryptographic signature. It then dispatches **one** sponsored UGF transaction calling `donateWithPermit(...)`, executing allowance authorization and donation execution in a single on-chain block.
+3. **Flow C: Fallback Sponsored Approve + Donate**
+   If the wallet does not support permit signatures (e.g. hardware wallets), the app transparently runs a two-step fallback:
+   - **Step 1**: Dispatches a sponsored UGF transaction to `approve()` the vault to spend tokens.
+   - **Verification Polling**: The frontend safely polls the token allowance for up to 15 seconds after the transaction is mined to ensure on-chain allowance propagation has completed.
+   - **Step 2**: Automatically dispatches the second sponsored UGF transaction to `donate(causeId, amount)`.
+
+---
+
+## Repository Structure
+
+```
+├── root/                     # Core configs and legacy HTML modules
+├── cryptoaid/                # Premium React + Vite + Tailwind CSS Frontend
+│   ├── src/
+│   │   ├── components/      # DonationModal, Navbar, Hero, CauseGrid
+│   │   ├── web3Service.ts   # UGF Client, EIP-2612 Permits, RPC bindings
+│   │   ├── App.tsx          # Central application and wallet contexts
+│   │   └── index.css        # Premium typography, glassmorphism, and keyframe animations
+├── backend/                  # Node Express API & Startup Event Indexer
+│   ├── src/
+│   │   ├── index.ts         # Express server & API routes
+│   │   ├── indexer/         # Event logs listeners and background backfiller
+│   │   └── ws/              # Live WebSocket server handles dashboard sync
+│   └── prisma/               # Schema definitions, migrations, and seeds
+└── contracts/                # Hardhat project with Solidity Smart Contracts
+    ├── contracts/            # DonationVault.sol & MockUSD.sol
+    └── scripts/              # Contract compilation and deployment automation
+```
+
+---
+
+## Installation & System Setup
+
+This project is fully supported on **Windows, macOS, and Linux**.
+
+### System Prerequisites
+Ensure the following packages are installed on your machine:
+* **Node.js (version 20.x recommended, 18+ required)** and **npm**
+* **PostgreSQL Database** (local instance or hosted service like Supabase)
+* **Web3 Wallet** (MetaMask, Coinbase Wallet, or Rabby) connected to **Base Sepolia**
+
+---
+
+### Step 1: Clone the Repository & Install Dependencies
+Clone the repository and install dependencies inside each project folder:
 
 ```bash
+# 1. Clone the project
 git clone https://github.com/rayyanshk03/DONATION.git
 cd DONATION
+
+# 2. Install root dependencies
 npm install
 
-cd backend
+# 3. Install React frontend dependencies
+cd cryptoaid
 npm install
 
-# Only needed if you plan to compile/deploy contracts
-cd ..
-cd contracts
+# 4. Install Express backend dependencies
+cd ../backend
+npm install
+
+# 5. Install Contracts dependencies (optional)
+cd ../contracts
 npm install
 ```
 
-### 2) Configure frontend env
+---
 
-The frontend reads `env.js` (loaded by `index.html`).
+### Step 2: PostgreSQL Database & Prisma Setup
+Prisma coordinates migrations and database operations. Configure your database connection string and migrate schemas.
 
-Option A — **edit `env.js` directly** (quickest):
+1. Navigate to the backend directory:
+   ```bash
+   cd ../backend
+   ```
+2. Create your `.env` file from the provided example:
+   ```bash
+   cp .env.example .env
+   ```
+3. Open `backend/.env` in your editor and configure the database details:
+   ```dotenv
+   PORT=4000
+   DATABASE_URL="postgresql://db_user:db_password@localhost:5432/cryptoaid?schema=public"
+   DIRECT_URL="postgresql://db_user:db_password@localhost:5432/cryptoaid?schema=public"
+   
+   # Base Sepolia RPC URLs for the live Indexer
+   RPC_URL="https://sepolia.base.org"
+   
+   # Main Smart Contract Address
+   VAULT_ADDRESS="0xB6Cfb2BCF4bb8eF6A9aBa53405F23eC872703b5c"
+   ```
+4. Push database tables, generate the client, and load cause seed data:
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   npm run prisma:seed
+   ```
 
-- `VITE_UGC_TOKEN_ADDRESS`
-- `VITE_DONATION_CONTRACT_ADDRESS`
-- `VITE_TARGET_CHAIN_ID` (Base Sepolia = `84532`)
-- `VITE_UGF_API_KEY` (legacy, unused by the SDK)
-- `VITE_UGF_ENDPOINT` (optional override; defaults to the UGF gateway)
-- `VITE_UGC_FAUCET_URL`
-- `VITE_BACKEND_URL` (default `http://localhost:4000`)
-- `VITE_WS_URL` (default `ws://localhost:4000/ws`)
+---
 
-Option B — **deploy contracts and auto-generate `env.js`** (see “Deploy contracts” below).
+### Step 3: Configure & Build the React Frontend
+Configure the client parameters for UGF and chain endpoints.
 
-### 3) Configure backend env
+1. Navigate to the frontend directory:
+   ```bash
+   cd ../cryptoaid
+   ```
+2. Set up the environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+3. Open `cryptoaid/.env` and verify the values:
+   ```dotenv
+   VITE_UGC_TOKEN_ADDRESS=0x27DC1C167AeF232bb1e21073304B526726a8727e
+   VITE_DONATION_CONTRACT_ADDRESS=0xB6Cfb2BCF4bb8eF6A9aBa53405F23eC872703b5c
+   VITE_TARGET_CHAIN_ID=84532
+   VITE_UGF_ENDPOINT=https://gateway.universalgasframework.com
+   VITE_UGC_FAUCET_URL=https://universalgasframework.com/faucets
+   VITE_BACKEND_URL=http://localhost:4000
+   VITE_WS_URL=ws://localhost:4000
+   ```
+4. Validate that Vite is configured correctly by running a production build safety check:
+   ```bash
+   npm run build
+   ```
 
-Create `backend/.env` (copy from `backend/.env.example` and replace values):
+---
 
-```dotenv
-PORT=4000
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB
-DIRECT_URL=postgresql://USER:PASSWORD@HOST:PORT/DB
-REDIS_URL=redis://localhost:6379         # optional
-RPC_URL=https://sepolia.base.org
-RPC_WS_URL=wss://YOUR_WS_RPC_ENDPOINT    # optional but recommended
-VAULT_ADDRESS=0xYourDonationVaultAddress
-CORS_ORIGIN=                             # optional
-```
+### Step 4: Running the Applications Locally
 
-### 4) Set up the database
+To run the full end-to-end platform locally, launch the backend and frontend simultaneously in separate terminals:
 
-```bash
-cd backend
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-```
-
-### 5) Run the backend
-
+#### Term 1: Run the Backend & Indexer
+Starts the Express API server on port `4000`, hosts WebSockets, and runs the Base Sepolia startup transaction backfiller:
 ```bash
 cd backend
 npm run dev
 ```
 
-The API will start on `http://localhost:4000` with WebSocket at `ws://localhost:4000/ws`.
-
-### 6) Run the frontend
-
+#### Term 2: Run the React Web App
+Serves the premium React frontend application locally on port `3000`:
 ```bash
-cd ..
+cd cryptoaid
 npm run dev
 ```
 
-The static app will be served (default `http://localhost:3000`). Open the URL printed in your terminal.
+Once running, navigate to **`http://localhost:3000`** in your browser.
 
-## Deploy contracts (optional)
+---
 
-If you want to deploy fresh contracts to Base Sepolia:
+## Smart Contracts compilation & Deployment (Optional)
 
-1. Create `.env` in the repo root (copy `.env.example` and set `PRIVATE_KEY` + `BASE_SEPOLIA_RPC_URL`).  
-2. Compile contracts inside `/contracts`:
+If you wish to deploy a fresh instance of the token or vault contracts to Base Sepolia:
 
-```bash
-cd contracts
-npm run compile
-```
+1. Navigate to the `contracts/` directory:
+   ```bash
+   cd contracts
+   ```
+2. Create your contract environment file:
+   ```bash
+   cp .env.example .env
+   ```
+3. Configure your deployment wallet `PRIVATE_KEY` and Base Sepolia RPC URL inside `contracts/.env`.
+4. Compile the Solidity contracts:
+   ```bash
+   npm run compile
+   ```
+5. Deploy to Base Sepolia using Hardhat:
+   ```bash
+   npx hardhat run scripts/deploy.js --network baseSepolia
+   ```
+   *Note: Updating contract deployments will output new addresses. Copy these addresses into your `backend/.env` and `cryptoaid/.env` files.*
 
-3. From the repo root, run:
+---
 
-```bash
-node scripts/deploy.js
-```
+## Diagnostic & Architectural Notes
 
-This deploys **MockUSD** + **DonationVault** and overwrites `env.js` with the new addresses.
-
-## Notes
-
-- The backend indexer requires a valid `VAULT_ADDRESS` and RPC URL to track donations.  
-- Redis is optional; if missing, the backend still runs (leaderboard cache disabled).  
-- Mock USD is obtained via the UGF faucet link; no ETH is required for the claim flow.
+* **Dynamic Faucet Claims**: To acquire `TYI_MOCK_USD` tokens for testing gasless donations, click the **Get UGC Tokens** faucet link in the navigation header to open the UGF faucet panel.
+* **MetaMask Signature Security**: Rejecting or closing a permit signature prompt will safely cancel the transaction and return you to the amount selector rather than triggering fallback loops.
+* **On-Chain Event Sync**: The backend event indexer features an **auto-recovery backfiller**. When the server starts, it automatically queries the past 1,500 Base Sepolia blocks to index any donations executed while the indexer was offline, keeping the leaderboard and activity feed perfectly accurate.
