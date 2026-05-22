@@ -1,0 +1,6 @@
+{
+  "name": "CryptoAid",
+  "description": "A premium gasless donation platform powered by Universal Gas Facilitation (UGF) on Base Sepolia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
